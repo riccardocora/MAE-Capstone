@@ -29,7 +29,7 @@ int selectedSource = 0;
 float headSize = 30;
 
 // Cube boundary
-float boundarySize = 500;
+float boundarySize = 700;
 
 // Add event variables to capture slider values
 float radius = 150;
@@ -43,7 +43,7 @@ void setup() {
   cp5 = new ControlP5(this);
   MidiBus.list(); // List available MIDI devices in the console
   try {
-    myBus = new MidiBus(this, 2, 5);
+    myBus = new MidiBus(this,"MPK mini Play mk3", "MPK mini Play mk3");
   } catch (Exception e) {
     println("Error initializing MidiBus: " + e.getMessage());
   }  
@@ -53,6 +53,11 @@ void setup() {
   soundSources.add(new SoundSource(150, 0, PI/4));
   soundSources.add(new SoundSource(200, PI/2, PI/3));
   soundSources.add(new SoundSource(130, PI, PI/2));
+  soundSources.add(new SoundSource(180, -PI/3, PI/6));
+  soundSources.add(new SoundSource(160, PI/4, PI/2));
+  soundSources.add(new SoundSource(170, -PI/2, PI/3));
+  soundSources.add(new SoundSource(190, PI/6, PI/4));
+  soundSources.add(new SoundSource(210, -PI/4, PI/5));
   
   // Calculate positions for UI elements
   float panelX = width - 300;
@@ -395,5 +400,56 @@ class SoundSource {
     rotateZ(HALF_PI);
     ellipse(0, 0, waveRadius, waveRadius);
     popMatrix();
+  }
+
+
+}
+  // Log MIDI Control Change messages (e.g., knobs, faders, etc.)
+void controllerChange(int channel, int number, int value) {
+  // Ensure we're working with channel 0 and control numbers 1 to 3
+  if (channel == 0) {
+    // Check for Control Change values and map them to the corresponding sound source property
+    if (selectedSource >= 0 && selectedSource < soundSources.size()) {
+      SoundSource source = soundSources.get(selectedSource);
+
+      // Control Change for Radius (Control number 1)
+      if (number == 1) {
+        // Map MIDI value (0-127) to the radius range (50 to boundarySize - 50)
+        float mappedRadius = map(value, 0, 127, 50, boundarySize - 50);
+        source.radius = mappedRadius;
+        source.updatePosition(); // Update the position based on the new radius
+        println("Updated Radius: " + source.radius);
+      }
+
+      // Control Change for Azimuth (Control number 2)
+      if (number == 2) {
+        // Map MIDI value (0-127) to azimuth range (0 to TWO_PI)
+        float mappedAzimuth = map(value, 0, 127, 0, TWO_PI);
+        source.azimuth = mappedAzimuth;
+        source.updatePosition(); // Update the position based on the new azimuth
+        println("Updated Azimuth: " + source.azimuth);
+      }
+
+      // Control Change for Zenith (Control number 3)
+      if (number == 3) {
+        // Map MIDI value (0-127) to zenith range (0 to PI)
+        float mappedZenith = map(value, 0, 127, 0, PI);
+        source.zenith = mappedZenith;
+        source.updatePosition(); // Update the position based on the new zenith
+        println("Updated Zenith: " + source.zenith);
+      }
+    }
+  }
+}
+
+// Listen for MIDI "note on" messages
+void noteOn(int channel, int note, int velocity) {
+  // Check if the note is within the range of 36 to 43
+  if (note >= 36 && note <= 43) {
+    // Map the note to the index of soundSources (36 maps to index 0, 37 to 1, ..., 43 to 7)
+    selectedSource = note - 36;  // This will give us an index from 0 to 7
+    
+    // Print the note and the selected source
+    println("[NOTE ON] Channel: " + channel + ", Note: " + note + ", Velocity: " + velocity + " - Source selected: " + selectedSource);
   }
 }
