@@ -24,6 +24,9 @@ MidiBus midiBus; // MIDI connection
 OscP5 oscP5;   // OSC instance for receiving messages
 NetAddress reaper; // NetAddress for sending messages to Reaper
 
+MidiMappingManager midiManager; // MIDI mapping object
+String midiMappingFile = "data/midi_mapping.json";
+
 // Data structures to store track and sound source information
 ArrayList<Track> tracks = new ArrayList<Track>();
 ArrayList<SoundSource> soundSources = new ArrayList<SoundSource>();
@@ -44,6 +47,10 @@ Track masterTrack; // Declare a master track
 
 void setup() {
   size(1000, 700, P3D);
+
+  // Initialize the MIDI Mapping Manager and load the mappings
+  midiManager = new MidiMappingManager();
+  midiManager.loadMappings(midiMappingFile);
   
   // Initialize ControlP5
   cp5 = new ControlP5(this);
@@ -58,7 +65,7 @@ void setup() {
   
   
   // Initialize sound sources and tracks
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 7; i++) {
     tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300));
     soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
   }
@@ -71,48 +78,320 @@ void setup() {
   
   // Initialize MIDI connection
   MidiBus.list(); // List available MIDI devices in the console
-  midiBus = new MidiBus(this, "MPK mini Play mk3", "MPK mini Play mk3"); // Replace with your MIDI device name
+  midiBus = new MidiBus(this, "Yamaha 02R96-1", "Yamaha 02R96-1"); // Replace with your MIDI device name
 }
 
+// Instead of Java's MidiMessage class, we'll use the MidiBus event handlers
 public void controllerChange(int channel, int number, int value) {
   // Log the incoming MIDI CC message
   println("[MIDI CC] Channel: " + channel + ", Number: " + number + ", Value: " + value);
   
-  switch (number) {
-    case 1: // Radius
-      if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-        float radius = map(value, 0, 127, 50, 600);
-        SoundSource source = soundSources.get(selectedSource);
-        source.radius = radius;
-        source.updatePosition();
-        cp5.getController("radius").setValue(source.radius);
-        sendOscVolume(selectedSource + 1, map(radius, 50, 600, 0, 1));
-      }
-      break;
-
-    case 2: // Azimuth
-      if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-        float azimuth = map(value, 0, 127, 0, TWO_PI);
-        SoundSource source = soundSources.get(selectedSource);
-        source.azimuth = azimuth;
-        source.updatePosition();
-        cp5.getController("azimuth").setValue(source.azimuth);
-
-      }
-      break;
-
-    case 3: // Zenith
-      if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-        float zenith = map(value, 0, 127, 0, PI);
-        SoundSource source = soundSources.get(selectedSource);
-        source.zenith = zenith;
-        source.updatePosition();
-        cp5.getController("zenith").setValue(source.zenith);
-      }
-      break;
+  // Find matching mappings for this CC message
+  ArrayList<MidiMapping> matches = midiManager.findMappingsForCC(channel, number, value);
+  
+  for (MidiMapping mapping : matches) {
+    float normalizedValue = mapping.getNormalizedValue(value);
+    
+    switch (mapping.action) {
+      case "updateSource":
+        if (selectedSource >= 0 && selectedSource < soundSources.size()) {
+          SoundSource source = soundSources.get(selectedSource);
+          
+          if (mapping.parameter.equals("radius")) {
+            float radius = map(normalizedValue, 0, 1, 50, 600);
+            source.radius = radius;
+            source.updatePosition();
+            cp5.getController("radius").setValue(source.radius);
+            sendOscVolume(selectedSource + 1, normalizedValue);
+          } 
+          else if (mapping.parameter.equals("azimuth")) {
+            float azimuth = map(normalizedValue, 0, 1, 0, TWO_PI);
+            source.azimuth = azimuth;
+            source.updatePosition();
+            cp5.getController("azimuth").setValue(source.azimuth);
+          } 
+          else if (mapping.parameter.equals("zenith")) {
+            float zenith = map(normalizedValue, 0, 1, 0, PI);
+            source.zenith = zenith;
+            source.updatePosition();
+            cp5.getController("zenith").setValue(source.zenith);
+          }
+        }
+        break;
+        
+      case "selectSource":
+        // Only trigger source selection when value is in the active range
+        if (mapping instanceof CCMapping) {
+          CCMapping ccMapping = (CCMapping) mapping;
+          int sourceIndex = ccMapping.getTrackNumber(number);
+          if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {
+            selectedSource = sourceIndex;
+            SoundSource source = soundSources.get(selectedSource);
+            cp5.getController("radius").setValue(source.radius);
+            cp5.getController("azimuth").setValue(source.azimuth);
+            cp5.getController("zenith").setValue(source.zenith);
+            println("Selected source: " + selectedSource);
+          }
+        }
+        break;
+        
+      case "toggleMute":
+        if (mapping instanceof CCMapping) {
+          CCMapping ccMapping = (CCMapping) mapping;
+          int trackNum = ccMapping.getTrackNumber(number);
+          if (trackNum >= 0 && trackNum < tracks.size()) {
+            boolean muted = value > 63; // Consider values > 63 as mute ON
+            tracks.get(trackNum).setMuted(muted);
+            sendOscMute(trackNum + 1, muted);
+          }
+        }
+        break;
+        
+      case "toggleMasterMute":
+        boolean muted = value > 63;
+        masterTrack.setMuted(muted);
+        sendOscMessage("/master/mute", muted ? 1 : 0);
+        break;
+        
+      case "setTrackVolume":
+        if (mapping instanceof CCMapping) {
+          CCMapping ccMapping = (CCMapping) mapping;
+          int trackNum = ccMapping.getTrackNumber(number);
+          if (trackNum >= 0 && trackNum < tracks.size()) {
+            tracks.get(trackNum).setVolume(normalizedValue);
+            // If this track has a corresponding sound source, update its volume too
+            if (trackNum < soundSources.size()) {
+              soundSources.get(trackNum).setVolume(normalizedValue);
+            }
+            sendOscVolume(trackNum + 1, normalizedValue);
+          }
+        }
+        break;
+        
+      case "setMasterVolume":
+        masterTrack.setVolume(normalizedValue);
+        sendOscMessage("/track/volume", normalizedValue);
+        break;
+        
+      case "setPan":
+        if (mapping instanceof CCMapping) {
+          CCMapping ccMapping = (CCMapping) mapping;
+          int trackNum = ccMapping.getTrackNumber(number);
+          if (trackNum >= 0 && trackNum < tracks.size()) {
+            // Convert normalized value to -1 to 1 range for pan
+            float pan = map(normalizedValue, 0, 1, -1, 1);
+            //tracks.get(trackNum).setPan(pan);
+            sendOscPan(trackNum + 1, pan);
+          }
+        }
+        break;
+        
+      case "setMasterPan":
+        float pan = map(normalizedValue, 0, 1, -1, 1);
+        //masterTrack.setPan(pan);
+        sendOscMessage("/track/pan", pan);
+        break;
+    }
   }
 }
 
+// Handle raw MIDI messages for SysEx data
+void rawMidi(byte[] data) {
+  // Check if this is a SysEx message (starts with 0xF0)
+  if (data.length > 0 && (data[0] & 0xFF) == 0xF0) {
+    // Log the SysEx message
+    println("[MIDI SysEx] Received SysEx message:");
+    String hexString = "";
+    for (int i = 0; i < data.length; i++) {
+      hexString += String.format("%02X ", data[i] & 0xFF);
+    }
+    println(hexString.trim());
+    
+    // Find matching mappings for this SysEx message
+    ArrayList<MidiMapping> matches = midiManager.findMappingsForSysEx(data);
+    
+    for (MidiMapping mapping : matches) {
+      println("Found matching SysEx mapping: " + mapping.name);
+      
+      switch (mapping.action) {
+        case "setMasterVolume":
+          // Extract volume value from SysEx data
+          if (data.length >= 5) {
+            float volume = map(data[4] & 0xFF, 0, 127, 0, 1);
+            masterTrack.setVolume(volume);
+            sendOscMessage("/track/volume", volume);
+          }
+          break;
+          
+        case "toggleSolo":
+          // Extract track number and solo state from SysEx data
+          if (data.length >= 13) {
+            int trackNum = data[8] & 0xFF;
+            boolean solo = (data[12] & 0xFF) == 1;
+            
+            if (trackNum < tracks.size()) {
+              tracks.get(trackNum).setSoloed(solo);
+              sendOscSolo(trackNum + 1, solo);
+            }
+          }
+          break;
+          
+        case "toggleMasterSolo":
+          // Extract master solo state from SysEx data
+          if (data.length >= 13) {
+            boolean solo = (data[12] & 0xFF) == 1;
+            masterTrack.setSoloed(solo);
+            sendOscMessage("/track/solo", solo ? 1 : 0);
+          }
+          break;
+          
+        case "setPositionX":
+          // Process positioning X data
+          if (data.length >= 13 && data[7] == 0x05) { // Check for X position command (0x05)
+            int trackNum = data[8] & 0xFF;
+            
+            if (trackNum < soundSources.size()) {
+              // Extract the 4 bytes that represent the X position
+              int xPos = parsePositionValue(data[9], data[10], data[11], data[12]);
+              
+              // Now we have the X position value, ranging from -63 to +63
+              // We'll use it to calculate part of the spherical coordinates
+              SoundSource source = soundSources.get(trackNum);
+              
+              // Store the X position to use later for radius calculation
+              float xNormalized = map(xPos, -63, 63, -1, 1);
+              
+              // Update source position if we already have the Y position
+              if (source.hasYPosition) {
+                // Convert cartesian (x, y) to polar (azimuth, radius)
+                float azimuth = atan2(source.yNormalized, xNormalized);
+                float radius = sqrt(xNormalized*xNormalized + source.yNormalized*source.yNormalized) * boundarySize/2;
+                
+                // Adjust azimuth to the 0-2π range
+                if (azimuth < 0) azimuth += TWO_PI;
+                
+                // Update the sound source
+                source.radius = constrain(radius, 50, 600);
+                source.azimuth = azimuth;
+                source.updatePosition();
+                
+                // Update UI if this is the currently selected source
+                if (trackNum == selectedSource) {
+                  cp5.getController("radius").setValue(source.radius);
+                  cp5.getController("azimuth").setValue(source.azimuth);
+                }
+                
+                // Send OSC updates
+                sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+              } else {
+                // Store X position for later
+                source.xNormalized = xNormalized;
+                source.hasXPosition = true;
+              }
+              
+              println("Set X position for track " + trackNum + ": " + xPos + " (normalized: " + xNormalized + ")");
+            }
+          }
+          break;
+          
+        case "setPositionY":
+          // Process positioning Y data
+          if (data.length >= 13 && data[7] == 0x06) { // Check for Y position command (0x06)
+            int trackNum = data[8] & 0xFF;
+            
+            if (trackNum < soundSources.size()) {
+              // Extract the 4 bytes that represent the Y position
+              int yPos = parsePositionValue(data[9], data[10], data[11], data[12]);
+              
+              // Now we have the Y position value, ranging from -63 to +63
+              SoundSource source = soundSources.get(trackNum);
+              
+              // Store the Y position to use later for radius calculation
+              float yNormalized = map(yPos, -63, 63, -1, 1);
+              
+              // Update source position if we already have the X position
+              if (source.hasXPosition) {
+                // Convert cartesian (x, y) to polar (azimuth, radius)
+                float azimuth = atan2(yNormalized, source.xNormalized);
+                float radius = sqrt(source.xNormalized*source.xNormalized + yNormalized*yNormalized) * boundarySize/2;
+                
+                // Adjust azimuth to the 0-2π range
+                if (azimuth < 0) azimuth += TWO_PI;
+                
+                // Update the sound source
+                source.radius = constrain(radius, 50, 600);
+                source.azimuth = azimuth;
+                source.updatePosition();
+                
+                // Update UI if this is the currently selected source
+                if (trackNum == selectedSource) {
+                  cp5.getController("radius").setValue(source.radius);
+                  cp5.getController("azimuth").setValue(source.azimuth);
+                }
+                
+                // Send OSC updates
+                sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+              } else {
+                // Store Y position for later
+                source.yNormalized = yNormalized;
+                source.hasYPosition = true;
+              }
+              
+              println("Set Y position for track " + trackNum + ": " + yPos + " (normalized: " + yNormalized + ")");
+            }
+          }
+          break;
+          
+        case "setElevation":
+          // Process elevation data (this would be your separate control for zenith)
+          if (data.length >= 10) {
+            int trackNum = data[8] & 0xFF;
+            if (trackNum < soundSources.size()) {
+              // Parse the elevation data (assuming it's a single byte value)
+              float zenith = map(data[9] & 0xFF, 0, 127, 0, PI);
+              
+              // Update the sound source
+              SoundSource source = soundSources.get(trackNum);
+              source.zenith = zenith;
+              source.updatePosition();
+              
+              // Update UI if this is the currently selected source
+              if (trackNum == selectedSource) {
+                cp5.getController("zenith").setValue(source.zenith);
+              }
+              
+              println("Set elevation for track " + trackNum + ": " + zenith);
+            }
+          }
+          break;
+      }
+    }
+  }
+}
+
+// Helper function to parse position values from 4 SysEx bytes
+int parsePositionValue(byte b1, byte b2, byte b3, byte b4) {
+  // The format seems to be special where:
+  // 00 00 00 00 = position 0
+  // 00 00 00 3F = position +63 (max)
+  // 7F 7F 7F 41 = position -63 (min)
+  
+  int value = 0;
+  
+  // Check if we're in the positive range (first byte is 0)
+  if ((b1 & 0xFF) == 0x00) {
+    // Positive range: 0 to +63
+    value = b4 & 0x7F;  // Use the last byte for the positive range
+    if (value > 63) value = 63;  // Clamp to max value
+  } else {
+    // Negative range: -1 to -63
+    // Use a scale where 7F 7F 7F 7F = -1 and 7F 7F 7F 41 = -63
+    value = -((b4 & 0x7F) == 0x7F ? 1 : (0x7F - (b4 & 0x7F)));
+    if (value < -63) value = -63;  // Clamp to min value
+  }
+  
+  return value;
+}
 public void noteOn(int channel, int note, int velocity) {
   // Log the incoming MIDI note message
   println("[MIDI NOTE] Channel: " + channel + ", Note: " + note + ", Velocity: " + velocity);
@@ -340,4 +619,3 @@ public void sendOscMessage(String address, Object... args) {
     println("Error sending OSC message: " + e.getMessage());
   }
 }
-

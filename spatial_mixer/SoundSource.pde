@@ -7,6 +7,11 @@ class SoundSource {
   float volume = 0;  // Volume level (0-1)
   float vuLevel = 0; // VU level (0-1), updated by parent class
 
+  // For position tracking
+  float xNormalized, yNormalized;  // Normalized X and Y positions (-1 to 1)
+  boolean hasXPosition = false;    // Whether we have received X position
+  boolean hasYPosition = false;    // Whether we have received Y position
+
   SoundSource(float r, float a, float z) {
     radius = constrain(r, 50, boundarySize - 200);
     azimuth = a;
@@ -96,6 +101,20 @@ class SoundSource {
   // Method to update the VU level (called by the parent class)
   void setVuLevel(float newVuLevel) {
     vuLevel = constrain(newVuLevel, 0, 1); // Ensure VU level is within range
+  }
+
+  // Method to update position from X and Y normalized values
+  void updateFromCartesian(float xNorm, float yNorm) {
+    // Compute azimuth from x, y coordinates
+    azimuth = atan2(yNorm, xNorm);
+    if (azimuth < 0) azimuth += TWO_PI;
+    
+    // Compute radius from x, y coordinates (0 to boundarySize/2)
+    radius = sqrt(xNorm*xNorm + yNorm*yNorm) * boundarySize/2;
+    radius = constrain(radius, 50, 600);
+    
+    // Update position
+    updatePosition();
   }
 }
 
