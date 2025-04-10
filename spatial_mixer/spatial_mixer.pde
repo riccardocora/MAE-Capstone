@@ -15,6 +15,8 @@ import controlP5.*;
 import oscP5.*;
 import netP5.*;
 import themidibus.*;
+import java.util.HashMap;
+import java.util.function.Consumer;
 
 // Main component managers
 ControlP5 cp5;
@@ -44,6 +46,8 @@ float azimuth = 0;
 float zenith = PI / 4;
 
 Track masterTrack; // Declare a master track
+
+HashMap<String, Consumer<OscMessage>> oscHandlers = new HashMap<>();
 
 void setup() {
   size(1000, 700, P3D);
@@ -79,19 +83,56 @@ void setup() {
   // Initialize MIDI connection
   MidiBus.list(); // List available MIDI devices in the console
   midiBus = new MidiBus(this, "Yamaha 02R96-1", "Yamaha 02R96-1"); // Replace with your MIDI device name
+
+  // Initialize OSC handlers
+  oscHandlers.put("/track/*/volume", msg -> {
+    int trackNum = parseTrackNumber(msg.addrPattern());
+    if (trackNum >= 1 && trackNum <= tracks.size()) {
+      float volume = msg.get(0).floatValue();
+      tracks.get(trackNum - 1).setVolume(volume);
+      if (trackNum <= soundSources.size()) {
+        soundSources.get(trackNum - 1).setVolume(volume);
+      }
+    }
+  });
+
+  oscHandlers.put("/track/*/vu", msg -> {
+    int trackNum = parseTrackNumber(msg.addrPattern());
+    if (trackNum >= 1 && trackNum <= tracks.size()) {
+      float vuLevel = msg.get(0).floatValue();
+      tracks.get(trackNum - 1).setVuLevel(vuLevel);
+      if (trackNum <= soundSources.size()) {
+        soundSources.get(trackNum - 1).setVuLevel(vuLevel);
+      }
+    }
+  });
+
+  oscHandlers.put("/track/*/mute", msg -> {
+    int trackNum = parseTrackNumber(msg.addrPattern());
+    if (trackNum >= 1 && trackNum <= tracks.size()) {
+      boolean muted = (int) msg.get(0).floatValue() == 1;
+      tracks.get(trackNum - 1).setMuted(muted);
+    }
+  });
+
+  oscHandlers.put("/track/*/solo", msg -> {
+    int trackNum = parseTrackNumber(msg.addrPattern());
+    if (trackNum >= 1 && trackNum <= tracks.size()) {
+      boolean soloed = (int) msg.get(0).floatValue() == 1;
+      tracks.get(trackNum - 1).setSoloed(soloed);
+    }
+  });
 }
 
-// Instead of Java's MidiMessage class, we'll use the MidiBus event handlers
 public void controllerChange(int channel, int number, int value) {
-  // Log the incoming MIDI CC message
   println("[MIDI CC] Channel: " + channel + ", Number: " + number + ", Value: " + value);
-  
-  // Find matching mappings for this CC message
-  ArrayList<MidiMapping> matches = midiManager.findMappingsForCC(channel, number, value);
-  
-  for (MidiMapping mapping : matches) {
+
+  // Use the lookup table to find the mapping
+  MidiMapping mapping = midiManager.findMappingForCC(channel, number);
+
+  if (mapping != null) {
     float normalizedValue = mapping.getNormalizedValue(value);
-    
+
     switch (mapping.action) {
       case "updateSource":
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
@@ -161,7 +202,8 @@ public void controllerChange(int channel, int number, int value) {
             tracks.get(trackNum).setVolume(normalizedValue);
             // If this track has a corresponding sound source, update its volume too
             if (trackNum < soundSources.size()) {
-              soundSources.get(trackNum).setVolume(normalizedValue);
+              SoundSource source = soundSources.get(trackNum);
+              source.setVolume(normalizedValue);
             }
             sendOscVolume(trackNum + 1, normalizedValue);
           }
@@ -178,23 +220,28 @@ public void controllerChange(int channel, int number, int value) {
           CCMapping ccMapping = (CCMapping) mapping;
           int trackNum = ccMapping.getTrackNumber(number);
           if (trackNum >= 0 && trackNum < tracks.size()) {
-            // Convert normalized value to -1 to 1 range for pan
-            float pan = map(normalizedValue, 0, 1, -1, 1);
-            //tracks.get(trackNum).setPan(pan);
-            sendOscPan(trackNum + 1, pan);
+            // Map the pan value (0-127) to the zenith angle (-PI to +PI)
+            float zenith = map(value, 0, 127, -PI, PI);
+            if (trackNum < soundSources.size()) {
+              SoundSource source = soundSources.get(trackNum);
+              source.zenith = zenith;
+              source.updatePosition();
+              if (trackNum == selectedSource) {
+                cp5.getController("zenith").setValue(source.zenith);
+              }
+            }
+            sendOscMessage("/track/" + (trackNum + 1) + "/zenith", zenith);
           }
         }
         break;
         
       case "setMasterPan":
         float pan = map(normalizedValue, 0, 1, -1, 1);
-        //masterTrack.setPan(pan);
         sendOscMessage("/track/pan", pan);
         break;
     }
   }
 }
-
 // Handle raw MIDI messages for SysEx data
 void rawMidi(byte[] data) {
   // Check if this is a SysEx message (starts with 0xF0)
@@ -392,6 +439,18 @@ int parsePositionValue(byte b1, byte b2, byte b3, byte b4) {
   
   return value;
 }
+
+// Helper function to parse the track number from the OSC address pattern
+int parseTrackNumber(String addrPattern) {
+  try {
+    String[] parts = addrPattern.split("/");
+    return Integer.parseInt(parts[2]); // Extract the track number from the address
+  } catch (Exception e) {
+    println("Error parsing track number from OSC address: " + addrPattern);
+    return -1; // Return an invalid track number if parsing fails
+  }
+}
+
 public void noteOn(int channel, int note, int velocity) {
   // Log the incoming MIDI note message
   println("[MIDI NOTE] Channel: " + channel + ", Note: " + note + ", Velocity: " + velocity);
@@ -407,78 +466,32 @@ public void noteOn(int channel, int note, int velocity) {
 }
 
 public void oscEvent(OscMessage msg) {
-  try {
-    println("OSC Message Received: " + msg.addrPattern() + " " + msg.typetag());
-    for (int i = 0; i < msg.arguments().length; i++) {
-      println("Argument " + i + ": " + msg.arguments()[i]);
-    }
+  String pattern = msg.addrPattern();
+  println("[OSC] Received message: " + pattern);
 
-    String pattern = msg.addrPattern();
-
-    // Handle master track volume updates
-    if (pattern.equals("/track/volume")) {
-      float volume = msg.get(0).floatValue();
-      masterTrack.setVolume(volume);
-    }
-
-    // Handle master track VU meter updates
-    else if (pattern.equals("/track/vu")) {
-      float vuLevel = msg.get(0).floatValue();
-      masterTrack.setVuLevel(vuLevel);
-    }
-
-    // Handle master track mute updates
-    else if (pattern.equals("/track/mute")) {
-      boolean muted = (int) msg.get(0).floatValue() == 1;
-      masterTrack.setMuted(muted);
-    }
-
-    // Handle master track solo updates
-    else if (pattern.equals("/track/solo")) {
-      boolean soloed = (int) msg.get(0).floatValue() == 1;
-      masterTrack.setSoloed(soloed);
-    }
-
-    // Handle individual track updates
-    else if (pattern.matches("/track/[0-7]/volume")) {
-      String[] parts = pattern.split("/");
-      int trackNum = Integer.parseInt(parts[2]);
-
-    // Extract volume value (assuming it's sent as a float between 0 and 1)
-      float volume = msg.get(0).floatValue();
-      tracks.get(trackNum - 1).setVolume(volume);
-      soundSources.get(trackNum - 1).setVolume(volume);
-    }
-
-    // Handle track VU meter updates
-    else if (pattern.matches("/track/[0-7]/vu")) {
-      String[] parts = pattern.split("/");
-      int trackNum = Integer.parseInt(parts[2]);
-
-    // Extract volume value (assuming it's sent as a float between 0 and 1)
-      float vuLevel = msg.get(0).floatValue();
-      tracks.get(trackNum - 1).setVuLevel(vuLevel);
-      soundSources.get(trackNum - 1).setVuLevel(vuLevel); // Sync VU level with sound source
-    }
-
-    // Handle track mute updates
-    else if (pattern.matches("/track/[0-7]/mute/toggle")) {
-      String[] parts = pattern.split("/");
-      int trackNum = Integer.parseInt(parts[2]);
-      boolean muted = (int)msg.get(0).floatValue() == 1;       // Ensure the value is treated as an integer
-      tracks.get(trackNum - 1).setMuted(muted);
-    }
-
-    // Handle track solo updates
-    else if (pattern.matches("/track/[0-7]/solo/toggle")) {
-      String[] parts = pattern.split("/");
-      int trackNum = Integer.parseInt(parts[2]);
-      boolean soloed = (int)msg.get(0).floatValue() == 1; // Ensure the value is treated as an integer
-      tracks.get(trackNum - 1).setSoloed(soloed);
-    }
-  } catch (Exception e) {
-    println("Error processing OSC message: " + e.getMessage());
+  // Match the pattern dynamically
+  Consumer<OscMessage> handler = findOscHandler(pattern);
+  if (handler != null) {
+    handler.accept(msg);
+  } else {
+    println("Unhandled OSC message: " + pattern);
   }
+}
+
+Consumer<OscMessage> findOscHandler(String messagePattern) {
+  for (String key : oscHandlers.keySet()) {
+    if (matchesOscPattern(key, messagePattern)) {
+      return oscHandlers.get(key);
+    }
+  }
+  return null;
+}
+
+// Helper function to match OSC patterns with wildcards
+boolean matchesOscPattern(String handlerPattern, String messagePattern) {
+  // Replace '*' in the handler pattern with a regex to match any segment
+  String regex = handlerPattern.replace("*", "[^/]+");
+  return messagePattern.matches(regex);
 }
 
 void draw() {

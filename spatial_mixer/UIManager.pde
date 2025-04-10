@@ -23,21 +23,16 @@ class UIManager {
   void updatePositions(float newWidth, float newHeight) {
     width = newWidth;
     height = newHeight;
-    
+
     panelX = width - 300;
-    sliderX = panelX + 20; // Adjust slider position to align with the panel
-    
-    // Update ControlP5 element positions
-    if (cp5.getController("radius") != null) {
-      cp5.getController("radius").setPosition(sliderX, height - 300);
-    }
-    
-    if (cp5.getController("azimuth") != null) {
-      cp5.getController("azimuth").setPosition(sliderX, height - 250);
-    }
-    
-    if (cp5.getController("zenith") != null) {
-      cp5.getController("zenith").setPosition(sliderX, height - 200);
+    sliderX = panelX + 20;
+
+    // Update ControlP5 element positions dynamically
+    String[] sliders = { "radius", "azimuth", "zenith" };
+    for (int i = 0; i < sliders.length; i++) {
+      if (cp5.getController(sliders[i]) != null) {
+        cp5.getController(sliders[i]).setPosition(sliderX, height - 300 + i * 50);
+      }
     }
   }
   
@@ -84,7 +79,7 @@ class UIManager {
     camera();
     noLights();
     
-    // Calculate panel positions relative to window size
+    // Avoid recalculating panelY multiple times
     float panelY = 100;
     
     // Draw UI panel background
@@ -104,19 +99,17 @@ class UIManager {
     textSize(16);
     text("Selected Source: " + (selectedSource + 1) + " / " + numSources, panelX + 20, panelY + 70);
     
-    // Draw source position info
+    // Draw source position info only if valid
     if (numSources > 0 && selectedSource < numSources) {
       SoundSource source = soundSources.get(selectedSource);
       fill(200);
       textSize(14);
       text("Position (x, y, z): ", panelX + 20, panelY + 100);
       text(String.format("(%.1f, %.1f, %.1f)", source.x, source.y, source.z), panelX + 20, panelY + 120);
-      
-      // Draw spherical coordinates
       text("Spherical Coordinates:", panelX + 20, panelY + 150);
       text(String.format("Radius: %.1f", source.radius), panelX + 20, panelY + 170);
-      text(String.format("Azimuth: %.1f° (%.1f rad)", source.azimuth * 180/PI, source.azimuth), panelX + 20, panelY + 190);
-      text(String.format("Zenith: %.1f° (%.1f rad)", source.zenith * 180/PI, source.zenith), panelX + 20, panelY + 210);
+      text(String.format("Azimuth: %.1f° (%.1f rad)", source.azimuth * 180 / PI, source.azimuth), panelX + 20, panelY + 190);
+      text(String.format("Zenith: %.1f° (%.1f rad)", source.zenith * 180 / PI, source.zenith), panelX + 20, panelY + 210);
     }
   
     // Draw sliders below spherical coordinates
@@ -156,6 +149,4 @@ class UIManager {
     text("- Sound sources auto-sync with Reaper tracks", x, y + 40);
     text("- Faders show track volumes and VU meters", x, y + 60);
   }
-  
- 
 }

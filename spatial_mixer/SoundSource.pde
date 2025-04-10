@@ -11,21 +11,25 @@ class SoundSource {
   float xNormalized, yNormalized;  // Normalized X and Y positions (-1 to 1)
   boolean hasXPosition = false;    // Whether we have received X position
   boolean hasYPosition = false;    // Whether we have received Y position
+  boolean positionUpdated = false; // Track if position needs recalculation
 
   SoundSource(float r, float a, float z) {
     radius = constrain(r, 50, boundarySize - 200);
     azimuth = a;
     zenith = z;
     sourceColor = color(random(100, 255), random(100, 255), random(100, 255));
+    positionUpdated = true; // Mark position for update
     updatePosition();
   }
   
 
-   void updatePosition() {
+  void updatePosition() {
+    if (!positionUpdated) return; // Skip if already updated
     // Convert spherical to Cartesian coordinates
     x = radius * sin(zenith) * cos(azimuth);
     z = radius * sin(zenith) * sin(azimuth);
     y = -radius * cos(zenith); // Flip the Y-axis
+    positionUpdated = false; // Reset flag
   }
 
 
@@ -96,6 +100,7 @@ class SoundSource {
   // Method to update the volume (called by the parent class)
   void setVolume(float newVolume) {
     volume = constrain(newVolume, 0, 1); // Ensure volume is within range
+    positionUpdated = true; // Mark position for update
   }
 
   // Method to update the VU level (called by the parent class)
@@ -114,6 +119,7 @@ class SoundSource {
     radius = constrain(radius, 50, 600);
     
     // Update position
+    positionUpdated = true; // Mark position for update
     updatePosition();
   }
 }

@@ -1,6 +1,7 @@
 class MidiMappingManager {
   ArrayList<MidiMapping> mappings = new ArrayList<MidiMapping>();
   HashMap<String, MidiMapping> midiLookup = new HashMap<String, MidiMapping>(); // Lookup table
+  HashMap<String, SysExMapping> sysExLookup = new HashMap<String, SysExMapping>(); // SysEx lookup table
 
   MidiMappingManager() {
     // Constructor
@@ -48,6 +49,7 @@ class MidiMappingManager {
 
           if (mappingObj.hasKey("pattern")) {
             ((SysExMapping) mapping).setPattern(mappingObj.getString("pattern"));
+            sysExLookup.put(mappingObj.getString("pattern"), (SysExMapping) mapping); // Add to lookup
           } else if (mappingObj.hasKey("prefix") && mappingObj.hasKey("suffix")) {
             ((SysExMapping) mapping).setPrefix(mappingObj.getString("prefix"));
             ((SysExMapping) mapping).setSuffix(mappingObj.getString("suffix"));
@@ -77,25 +79,30 @@ class MidiMappingManager {
   }
 
   ArrayList<MidiMapping> findMappingsForSysEx(byte[] data) {
+    String hexString = bytesToHexString(data);
     ArrayList<MidiMapping> matches = new ArrayList<MidiMapping>();
 
-    for (MidiMapping mapping : mappings) {
-      if (mapping instanceof SysExMapping) {
-        SysExMapping sysExMapping = (SysExMapping) mapping;
-
-        // Check if this mapping matches the received SysEx message
-        if (sysExMapping.matches(data)) {
-          matches.add(sysExMapping);
-        }
-      }
+    if (sysExLookup.containsKey(hexString)) {
+      matches.add(sysExLookup.get(hexString));
     }
-
     return matches;
   }
 
   // Generate a unique key for the lookup table
   String generateKey(String type, int channel, int number) {
     return type + ":" + channel + ":" + number;
+  }
+
+  // Utility method to convert byte array to hex string
+  String bytesToHexString(byte[] bytes) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < bytes.length; i++) {
+      sb.append(String.format("%02X", bytes[i])); // Convert each byte to a 2-character hex string
+      if (i < bytes.length - 1) {
+        sb.append(" "); // Add a space between bytes for readability
+      }
+    }
+    return sb.toString();
   }
 }
 
