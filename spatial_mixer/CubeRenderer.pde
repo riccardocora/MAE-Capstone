@@ -10,8 +10,11 @@ class CubeRenderer {
     this.boundarySize = boundarySize;
   }
   
-  // Draw cube frame
-  void drawCubeFrame() {
+  // Draw cube frame (now accepts container dimensions)
+  void drawCubeFrame(Rectangle container) {
+    // Calculate scale factor based on container dimensions
+    float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
+    
     // Disable the default drawing of the box
     noFill();
     noStroke();
@@ -63,6 +66,42 @@ class CubeRenderer {
         drawGradientEdge(x, y, -halfSize, x, y, halfSize, frontColor, backColor);
       }
     }
+  }
+  
+  // Draw coordinate system (now accepts container dimensions)
+  void drawCoordinateSystem(Rectangle container) {
+    // Calculate scale factor based on container dimensions
+    float scaleFactor = min(container.width, container.height) / (boundarySize * 2.5);
+    float axisLength = 100 * scaleFactor;
+    
+    strokeWeight(1);
+    
+    // X axis (red)
+    stroke(255, 0, 0);
+    line(0, 0, 0, axisLength, 0, 0);
+    pushMatrix();
+    translate(axisLength + 10, 0, 0);
+    fill(255, 0, 0);
+    text("X", 0, 0);
+    popMatrix();
+    
+    // Y axis (green) - Flipped
+    stroke(0, 255, 0);
+    line(0, 0, 0, 0, -axisLength, 0); // Inverted direction
+    pushMatrix();
+    translate(0, -axisLength - 10, 0); // Adjusted label position
+    fill(0, 255, 0);
+    text("Y", 0, 0);
+    popMatrix();
+    
+    // Z axis (blue)
+    stroke(0, 0, 255);
+    line(0, 0, 0, 0, 0, axisLength);
+    pushMatrix();
+    translate(0, 0, axisLength + 10);
+    fill(0, 0, 255);
+    text("Z", 0, 0);
+    popMatrix();
   }
   
   // Function to draw all gradient meshes for side and bottom faces
@@ -243,37 +282,5 @@ class CubeRenderer {
         line(x1, y, z1, x2, y, z1);
       }
     }
-  }
-  
-  // Draw coordinate system
-  void drawCoordinateSystem() {
-    strokeWeight(1);
-    
-    // X axis (red)
-    stroke(255, 0, 0);
-    line(0, 0, 0, 100, 0, 0);
-    pushMatrix();
-    translate(110, 0, 0);
-    fill(255, 0, 0);
-    text("X", 0, 0);
-    popMatrix();
-    
-    // Y axis (green) - Flipped
-    stroke(0, 255, 0);
-    line(0, 0, 0, 0, -100, 0); // Inverted direction
-    pushMatrix();
-    translate(0, -110, 0); // Adjusted label position
-    fill(0, 255, 0);
-    text("Y", 0, 0);
-    popMatrix();
-    
-    // Z axis (blue)
-    stroke(0, 0, 255);
-    line(0, 0, 0, 0, 0, 100);
-    pushMatrix();
-    translate(0, 0, 110);
-    fill(0, 0, 255);
-    text("Z", 0, 0);
-    popMatrix();
   }
 }

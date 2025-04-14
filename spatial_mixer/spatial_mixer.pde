@@ -20,7 +20,10 @@ import java.util.function.Consumer;
 
 // Main component managers
 ControlP5 cp5;
+LayoutManager layoutManager;
 UIManager uiManager;
+TrackManager trackManager;
+VisualizationManager visualizationManager;
 CubeRenderer cubeRenderer;
 MidiBus midiBus; // MIDI connection
 OscP5 oscP5;   // OSC instance for receiving messages
@@ -52,6 +55,9 @@ HashMap<String, Consumer<OscMessage>> oscHandlers = new HashMap<>();
 void setup() {
   size(1000, 700, P3D);
 
+  // Initialize the layout manager
+  layoutManager = new LayoutManager(width, height);
+
   // Initialize the MIDI Mapping Manager and load the mappings
   midiManager = new MidiMappingManager();
   midiManager.loadMappings(midiMappingFile);
@@ -62,6 +68,11 @@ void setup() {
   // Initialize component managers
   cubeRenderer = new CubeRenderer(boundarySize);
   uiManager = new UIManager(cp5, width, height);
+  visualizationManager = new VisualizationManager(boundarySize, headSize);
+
+  // Set containers for component managers
+  uiManager.setContainer(layoutManager.uiControlsArea);
+  visualizationManager.setContainer(layoutManager.mainViewArea);
 
   // Initialize OSC
   oscP5 = new OscP5(this, 8000); // Listen on port 8000
@@ -76,6 +87,11 @@ void setup() {
   
   // Initialize master track to the left of Track 1
   masterTrack = new Track(0, "Master", 70, height - 300);
+
+
+// Initialize track manager
+  trackManager = new TrackManager(tracks, masterTrack);
+  trackManager.setContainer(layoutManager.trackControlsArea);
 
   // Setup UI controls
   uiManager.setupControls(radius, azimuth, zenith, boundarySize);
@@ -497,65 +513,31 @@ boolean matchesOscPattern(String handlerPattern, String messagePattern) {
 void draw() {
   background(20, 25, 35);
 
-  // Draw master track first
-  masterTrack.draw();
-
-  // Draw other tracks
-  for (Track track : tracks) {
-    track.draw();
-  }
-
+   
+  // Draw track controls (bottom)
+  trackManager.draw();
+  
+  // Draw main visualization (top)
+  visualizationManager.draw(soundSources, selectedSource);
+  
+  // Draw UI controls (right)
   uiManager.draw(soundSources.size(), selectedSource);
-  draw3DScene();
+
 }
 
-void draw3DScene() {
-  pushMatrix();
-  
-  // Center the 3D scene on the screen with a better view
-  translate(width/2, height/2, -30);
-  rotateX(radians(-27));  // Looking down from above at a milder angle
-
-  scale(0.8);  // Scale down to fit better
-  
-  // Set up lighting
-  ambientLight(50, 50, 50);
-  directionalLight(200, 200, 200, -1, -1, -1);
-  
-  // Draw cube frame
-  cubeRenderer.drawCubeFrame();
-  
-  // Draw coordinate system
-  cubeRenderer.drawCoordinateSystem();
-  
-  // Draw central head (fixed at center)
-  pushMatrix();
-  noStroke();
-  fill(220, 190, 170);
-  sphere(headSize);
-  popMatrix();
-  
-  // Draw sound sources
-  for (int i = 0; i < soundSources.size(); i++) {
-    SoundSource source = soundSources.get(i);
-    boolean isSelected = (i == selectedSource);
-    source.display(isSelected, i+1); // Pass the source number (1-indexed)
-    
-    // Draw line connecting source to head
-    stroke(180, 180, 200, 150);
-    strokeWeight(1);
-    line(0, 0, 0, source.x, source.y, source.z);
-  }
-  
-  popMatrix();
-}
 
 // Window resize handling
 void windowResized() {
-  uiManager.updatePositions(width, height);
+  layoutManager.updateLayout(width, height);
+  uiManager.setContainer(layoutManager.uiControlsArea);
+  visualizationManager.setContainer(layoutManager.mainViewArea);
+  trackManager.setContainer(layoutManager.trackControlsArea);
 }
 
 void keyPressed() {
+    if (key == 'v' || key == 'V') {
+    visualizationManager.toggleMode();
+  }
   // Select sound source using number keys
   if (key >= '1' && key <= '9') {
     int sourceIndex = key - '1';
