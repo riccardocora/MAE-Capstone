@@ -22,16 +22,8 @@ class VisualizationManager {
   void draw(ArrayList<SoundSource> soundSources, int selectedSource) {
     if (container == null) return;
 
-    // Draw the background rectangle in 2D mode
-    hint(DISABLE_DEPTH_TEST); // Disable depth testing for 2D drawing
-    camera(); // Reset the camera to 2D mode
-    noLights(); // Disable lighting for 2D drawing
-    fill(30, 35, 45); // Background color
-    noStroke();
-    rect(container.x, container.y, container.width, container.height, 10); // Draw the rectangle
-    hint(ENABLE_DEPTH_TEST); // Re-enable depth testing for 3D rendering
+    drawBackground(container, color(30, 35, 45)); // Draw background
 
-    // Proceed with 3D rendering
     pushMatrix();
     if (is3DMode) {
       view3D.draw(soundSources, selectedSource, container);
@@ -39,6 +31,17 @@ class VisualizationManager {
       view2D.draw(soundSources, selectedSource, container);
     }
     popMatrix();
+  }
+
+  // Helper method to draw a background rectangle
+  void drawBackground(Rectangle container, color bgColor) {
+    hint(DISABLE_DEPTH_TEST);
+    camera();
+    noLights();
+    fill(bgColor);
+    noStroke();
+    rect(container.x, container.y, container.width, container.height, 10);
+    hint(ENABLE_DEPTH_TEST);
   }
   
   // Toggle between 2D and 3D modes
@@ -77,47 +80,49 @@ class View3D {
   // Draw the 3D scene
   void draw(ArrayList<SoundSource> soundSources, int selectedSource, Rectangle container) {
     pushMatrix();
-    
-    // Center the 3D scene on the container
-    translate(container.x + container.width / 2, container.y + container.height / 2, 0);
-    
-    // Calculate scale based on container size
+
+    // Calculate the scale factor to fit the cube within the container
     float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
-    
-    // Adjust rotation to avoid unintentional Y-axis rotation
-    rotateX(radians(-27));  // Looking down from above at a mild angle
-    rotateY(0);             // Ensure no rotation on the Y-axis
-    scale(scaleFactor * 0.8);  // Scale based on container size with a slight reduction
-    
+
+    // Translate to the center of the container in all three dimensions
+    translate(container.x + container.width / 2 + boundarySize / 6, container.y + container.height / 2, 0);
+
+    // Apply scaling to fit the cube within the container
+    scale(scaleFactor);
+
+    // Adjust rotation for a better perspective view
+    rotateX(radians(-33));  // Tilt the view slightly downward
+    rotateY(0);             // No rotation on the Y-axis
+
     // Set up lighting
     ambientLight(50, 50, 50);
     directionalLight(200, 200, 200, -1, -1, -1);
-    
-    // Draw cube frame with container dimensions
+
+    // Draw the cube frame
     cubeRenderer.drawCubeFrame(container);
-    
-    // Draw coordinate system with container dimensions
+
+    // Draw the coordinate system
     cubeRenderer.drawCoordinateSystem(container);
-    
-    // Draw central head (fixed at center)
+
+    // Draw the central head (fixed at the center of the cube)
     pushMatrix();
     noStroke();
     fill(220, 190, 170);
     sphere(headSize);
     popMatrix();
-    
+
     // Draw sound sources
     for (int i = 0; i < soundSources.size(); i++) {
       SoundSource source = soundSources.get(i);
       boolean isSelected = (i == selectedSource);
       source.display(isSelected, i + 1); // Pass the source number (1-indexed)
-      
-      // Draw line connecting source to head
+
+      // Draw a line connecting the source to the head
       stroke(180, 180, 200, 150);
       strokeWeight(1);
       line(0, 0, 0, source.x, source.y, source.z);
     }
-    
+
     popMatrix();
   }
   
@@ -150,8 +155,8 @@ class View2D {
     
     // Draw each perspective view in its own quadrant
     drawFrontView(container.x, container.y, quadWidth, quadHeight, soundSources, selectedSource);
-    drawTopView(container.x + quadWidth, container.y, quadWidth, quadHeight, soundSources, selectedSource);
-    drawSideView(container.x, container.y + quadHeight, quadWidth, quadHeight, soundSources, selectedSource);
+    drawTopView(container.x, container.y + quadHeight, quadWidth, quadHeight, soundSources, selectedSource);
+    drawSideView(container.x + quadWidth, container.y, quadWidth, quadHeight, soundSources, selectedSource);
     
     // Optional: Draw a legend or additional info in the bottom-right quadrant
     drawInfoPanel(container.x + quadWidth, container.y + quadHeight, quadWidth, quadHeight);
@@ -203,10 +208,10 @@ class View2D {
       // Calculate 2D position for front view (X-Y plane)
       // Y coordinate is inverted in Processing
       float sourceX = source.x;
-      float sourceY = -source.y; // Invert Y for screen coordinates
+      float sourceY = source.y; // Invert Y for screen coordinates
       
-      // Draw the source
-      draw2DSource(sourceX, sourceY, source.volume, source.vuLevel, isSelected, i+1);
+      // Draw the source with its color
+      draw2DSource(sourceX, sourceY, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
       
       // Draw line connecting source to head
       stroke(180, 180, 200, 100);
@@ -263,8 +268,8 @@ class View2D {
       float sourceX = source.x;
       float sourceZ = source.z;
       
-      // Draw the source
-      draw2DSource(sourceX, sourceZ, source.volume, source.vuLevel, isSelected, i+1);
+      // Draw the source with its color
+      draw2DSource(sourceX, sourceZ, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
       
       // Draw line connecting source to head
       stroke(180, 180, 200, 100);
@@ -318,11 +323,11 @@ class View2D {
       boolean isSelected = (i == selectedSource);
       
       // Calculate 2D position for side view (Z-Y plane)
-      float sourceZ = source.z;
-      float sourceY = -source.y; // Invert Y for screen coordinates
+      float sourceZ = -source.z;
+      float sourceY = source.y; // Invert Y for screen coordinates
       
-      // Draw the source
-      draw2DSource(sourceZ, sourceY, source.volume, source.vuLevel, isSelected, i+1);
+      // Draw the source with its color
+      draw2DSource(sourceZ, sourceY, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
       
       // Draw line connecting source to head
       stroke(180, 180, 200, 100);
@@ -410,9 +415,9 @@ class View2D {
   }
   
   // Helper method to draw a single sound source in 2D
-  void draw2DSource(float x, float y, float volume, float vuLevel, boolean isSelected, int sourceNumber) {
+  void draw2DSource(float x, float y, float volume, float vuLevel, boolean isSelected, int sourceNumber, color sourceColor) {
     // Calculate size based on volume (minimum size of 10, maximum of 30)
-    float size = map(volume, 0, 1, 10, 30);
+    float size = map(volume, 0, 1, 30, 60);
     
     // Use vuLevel to determine brightness
     float brightness = map(vuLevel, 0, 1, 100, 255);
@@ -426,7 +431,7 @@ class View2D {
     } else {
       stroke(200);
       strokeWeight(1);
-      fill(100, 100, brightness);
+      fill(red(sourceColor), green(sourceColor), blue(sourceColor), brightness);
     }
     
     ellipse(x, y, size, size);
@@ -434,7 +439,7 @@ class View2D {
     // Display source number
     fill(255);
     textAlign(CENTER, CENTER);
-    textSize(min(size * 0.6, 12));
+    textSize(min(size * 0.6, 20));
     text(sourceNumber, x, y);
   }
   
@@ -462,23 +467,41 @@ class View2D {
   // Helper method to draw coordinate axes
   void drawAxes(float xLength, float yLength, String xLabel, String yLabel) {
     // X axis
-    stroke(220, 100, 100);
-    strokeWeight(2);
-    line(0, 0, xLength, 0);
-    fill(220, 100, 100);
+
+    if (xLabel.equals("Z")) {
+      stroke(100, 100, 255);
+      strokeWeight(2);
+      line(-xLength, 0, xLength, 0);
+      fill(100, 100, 255);
+    }else {
+      stroke(220, 100, 100);
+      strokeWeight(2);
+      line(-xLength, 0, xLength, 0);
+      fill(220, 100, 100);
+    }
     triangle(xLength, 0, xLength - 7, -4, xLength - 7, 4);
     textAlign(CENTER);
     textSize(14);
     text(xLabel, xLength + 10, 5);
     
     // Y axis
-    stroke(100, 220, 100);
-    line(0, 0, 0, -yLength);
-    fill(100, 220, 100);
+    if (yLabel.equals("Z")) {
+      stroke(100, 100, 255);
+      strokeWeight(2);
+      line(0, yLength, 0, -yLength);
+      fill(100, 100, 255);
+    }else {
+      stroke(100, 220, 100);
+      strokeWeight(2);
+      line(0, yLength, 0, -yLength);
+      fill(100, 220, 100);
+    }
     triangle(0, -yLength, -4, -yLength + 7, 4, -yLength + 7);
     textAlign(CENTER);
     textSize(14);
     text(yLabel, 0, -yLength - 10);
+    
+
   }
   
   // Update visualization parameters

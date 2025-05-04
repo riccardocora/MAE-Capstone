@@ -1,142 +1,168 @@
 {
-    "midiMappings": [
-      {
-        "type": "cc",
-        "name": "Faders 1-24",
-        "parameter": "volume",
-        "channel": 0,
-        "valueRange": [0, 127],
-        "controllerRange": [1, 24],
-        "action": "setTrackVolume",
-        "description": "Controls volume for tracks 1-24"
-      },
-      {
-        "type": "cc",
-        "name": "Faders 25-48",
-        "parameter": "volume",
-        "channel": 1,
-        "valueRange": [0, 127],
-        "controllerRange": [1, 24],
-        "action": "setTrackVolume",
-        "trackOffset": 24,
-        "description": "Controls volume for tracks 25-48"
-      },
-      {
-        "type": "cc",
-        "name": "Master Fader",
-        "parameter": "volume",
-        "channel": 1,
-        "valueRange": [0, 127],
-        "controllerRange": [30, 30],
-        "action": "setTrackVolume",
-        "trackOffset": 0,
-        "description": "Controls master volume"
-      },
-
-
-      {
-        "type": "cc",
-        "name": "Faders Master Mode",
-        "parameter": "volume",
-        "channel": 3,
-        "valueRange": [0, 127],
-        "controllerRange": [1, 24],
-        "action": "setMasterVolume",
-        "description": "Controls master volume"
-      },
-      {
-        "type": "cc",
-        "name": "Mute 1-24",
-        "parameter": "mute",
-        "channel": 1,
-        "valueRange": [0, 127],
-        "controllerRange": [40, 63],
-        "action": "toggleMute",
-        "description": "Toggle mute for tracks 1-24"
-      },
-      {
-        "type": "cc",
-        "name": "Mute 25-48",
-        "parameter": "mute",
-        "channel": 2,
-        "valueRange": [0, 127],
-        "controllerRange": [40, 63],
-        "action": "toggleMute",
-        "trackOffset": 24,
-        "description": "Toggle mute for tracks 25-48"
-      },
-      {
-        "type": "cc",
-        "name": "Mute Master Mode",
-        "parameter": "mute",
-        "channel": 3,
-        "valueRange": [0, 127],
-        "controllerRange": [40, 63],
-        "action": "toggleMasterMute",
-        "description": "Toggle mute for master"
-      },
-      {
-        "type": "sysex",
-        "name": "Solo 1-48",
-        "parameter": "solo",
-        "pattern": "F0 43 10 3E 0B 03 2E 00 [00-2F] 00 00 00 [00-01] F7",
-        "action": "toggleSolo",
-        "description": "Toggle solo for tracks 1-48"
-      },
-      {
-        "type": "sysex",
-        "name": "Solo Master Mode",
-        "parameter": "solo",
-        "pattern": "F0 43 10 3E 0B 03 2E 02 [00-2F] 00 00 00 [00-01] F7",
-        "action": "toggleMasterSolo",
-        "description": "Toggle solo for master mode groups"
-      },
-      {
-        "type": "cc",
-        "name": "Pan 1-24",
-        "parameter": "pan",
-        "channel": 0,
-        "valueRange": [0, 127],
-        "controllerRange": [89, 118],
-        "action": "setPan",
-        "description": "Controls panning for tracks 1-24"
-      },
-      {
-        "type": "cc",
-        "name": "Pan 25-48",
-        "parameter": "pan",
-        "channel": 1,
-        "valueRange": [0, 127],
-        "controllerRange": [89, 118],
-        "action": "setPan",
-        "trackOffset": 24,
-        "description": "Controls panning for tracks 25-48"
-      },
-      {
-        "type": "cc",
-        "name": "Pan Master Mode",
-        "parameter": "pan",
-        "channel": 3,
-        "valueRange": [0, 127],
-        "controllerRange": [89, 118],
-        "action": "setMasterPan",
-        "description": "Controls master panning"
-      },
-      {
-        "type": "sysex",
-        "name": "Positioning X",
-        "parameter": "positionX",
-        "pattern": "F0 43 10 3E 7F 01 25 05 [00-2F] [00-7F] [00-7F] [00-7F] [00-7F] F7",
-        "action": "setPositionX",
-        "description": "Controls X position of sound sources"
-      },
-      {
-        "type": "sysex",
-        "name": "Positioning Y",
-        "parameter": "positionY",
-        "pattern": "F0 43 10 3E 7F 01 25 06 [00-2F] [00-7F] [00-7F] [00-7F] [00-7F] F7",
-        "action": "setPositionY",
-        "description": "Controls Y position of sound sources"
-      }
-    ]
+  "devices": {
+    "Yamaha 02R96-1": {
+      "midiMappings": [
+        {
+          "type": "cc",
+          "name": "Faders 1-24",
+          "parameter": "volume",
+          "channel": 0,
+          "valueRange": [0, 127],
+          "controllerRange": [1, 24],
+          "action": "setTrackVolume",
+          "description": "Controls volume for tracks 1-24"
+        },
+        {
+          "type": "cc",
+          "name": "Faders 25-48",
+          "parameter": "volume",
+          "channel": 1,
+          "valueRange": [0, 127],
+          "controllerRange": [1, 24],
+          "action": "setTrackVolume",
+          "trackOffset": 24,
+          "description": "Controls volume for tracks 25-48"
+        },
+        {
+          "type": "cc",
+          "name": "Master Fader",
+          "parameter": "volume",
+          "channel": 1,
+          "valueRange": [0, 127],
+          "controllerRange": [30, 30],
+          "action": "setTrackVolume",
+          "trackOffset": 0,
+          "description": "Controls master volume"
+        },
+        {
+          "type": "cc",
+          "name": "Faders Master Mode",
+          "parameter": "volume",
+          "channel": 3,
+          "valueRange": [0, 127],
+          "controllerRange": [1, 24],
+          "action": "setMasterVolume",
+          "description": "Controls master volume"
+        },
+        {
+          "type": "cc",
+          "name": "Mute 1-24",
+          "parameter": "mute",
+          "channel": 1,
+          "valueRange": [0, 127],
+          "controllerRange": [40, 63],
+          "action": "toggleMute",
+          "description": "Toggle mute for tracks 1-24"
+        },
+        {
+          "type": "cc",
+          "name": "Mute 25-48",
+          "parameter": "mute",
+          "channel": 2,
+          "valueRange": [0, 127],
+          "controllerRange": [40, 63],
+          "action": "toggleMute",
+          "trackOffset": 24,
+          "description": "Toggle mute for tracks 25-48"
+        },
+        {
+          "type": "cc",
+          "name": "Mute Master Mode",
+          "parameter": "mute",
+          "channel": 3,
+          "valueRange": [0, 127],
+          "controllerRange": [40, 63],
+          "action": "toggleMasterMute",
+          "description": "Toggle mute for master"
+        },
+        {
+          "type": "sysex",
+          "name": "Solo 1-48",
+          "parameter": "solo",
+          "pattern": "F0 43 10 3E 0B 03 2E 00 [00-2F] 00 00 00 [00-01] F7",
+          "action": "toggleSolo",
+          "description": "Toggle solo for tracks 1-48"
+        },
+        {
+          "type": "sysex",
+          "name": "Solo Master Mode",
+          "parameter": "solo",
+          "pattern": "F0 43 10 3E 0B 03 2E 02 [00-2F] 00 00 00 [00-01] F7",
+          "action": "toggleMasterSolo",
+          "description": "Toggle solo for master mode groups"
+        },
+        {
+          "type": "cc",
+          "name": "Pan 1-24",
+          "parameter": "pan",
+          "channel": 0,
+          "valueRange": [0, 127],
+          "controllerRange": [89, 118],
+          "action": "setPan",
+          "description": "Controls panning for tracks 1-24"
+        },
+        {
+          "type": "cc",
+          "name": "Pan 25-48",
+          "parameter": "pan",
+          "channel": 1,
+          "valueRange": [0, 127],
+          "controllerRange": [89, 118],
+          "action": "setPan",
+          "trackOffset": 24,
+          "description": "Controls panning for tracks 25-48"
+        },
+        {
+          "type": "cc",
+          "name": "Pan Master Mode",
+          "parameter": "pan",
+          "channel": 3,
+          "valueRange": [0, 127],
+          "controllerRange": [89, 118],
+          "action": "setMasterPan",
+          "description": "Controls master panning"
+        },
+        {
+          "type": "sysex",
+          "name": "Positioning X",
+          "parameter": "positionX",
+          "pattern": "F0 43 10 3E 7F 01 25 05 [00-2F] [00-7F] [00-7F] [00-7F] [00-7F] F7",
+          "action": "setPositionX",
+          "description": "Controls X position of sound sources"
+        },
+        {
+          "type": "sysex",
+          "name": "Positioning Y",
+          "parameter": "positionY",
+          "pattern": "F0 43 10 3E 7F 01 25 06 [00-2F] [00-7F] [00-7F] [00-7F] [00-7F] F7",
+          "action": "setPositionY",
+          "description": "Controls Y position of sound sources"
+        }
+      ]
+    },
+    "MPK mk3": {
+      "midiMappings": [
+        {
+          "type": "cc",
+          "name": "Knob 1",
+          "parameter": "volume",
+          "channel": 0,
+          "valueRange": [0, 127],
+          "controllerRange": [1, 1],
+          "action": "setTrackVolume",
+          "description": "Controls volume for track 1"
+        },
+        {
+          "type": "cc",
+          "name": "Knob 2",
+          "parameter": "pan",
+          "channel": 0,
+          "valueRange": [0, 127],
+          "controllerRange": [2, 2],
+          "action": "setPan",
+          "description": "Controls pan for track 1"
+        }
+      ]
+    }
   }
+}

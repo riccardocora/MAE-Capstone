@@ -71,7 +71,7 @@ class CubeRenderer {
   // Draw coordinate system (now accepts container dimensions)
   void drawCoordinateSystem(Rectangle container) {
     // Calculate scale factor based on container dimensions
-    float scaleFactor = min(container.width, container.height) / (boundarySize * 2.5);
+    float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
     float axisLength = 100 * scaleFactor;
     
     strokeWeight(1);

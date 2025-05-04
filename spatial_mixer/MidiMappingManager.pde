@@ -2,74 +2,81 @@ class MidiMappingManager {
   ArrayList<MidiMapping> mappings = new ArrayList<MidiMapping>();
   HashMap<String, MidiMapping> midiLookup = new HashMap<String, MidiMapping>(); // Lookup table
   HashMap<String, SysExMapping> sysExLookup = new HashMap<String, SysExMapping>(); // SysEx lookup table
+  ArrayList<String> availableDevices = new ArrayList<String>(); // List of devices with mappings
 
   MidiMappingManager() {
     // Constructor
   }
 
-  void loadMappings(String jsonFilePath) {
+  void loadMappings(String jsonFilePath, String selectedDevice) {
     try {
       JSONObject json = loadJSONObject(jsonFilePath);
-      JSONArray mappingsArray = json.getJSONArray("midiMappings");
+      JSONObject devices = json.getJSONObject("devices");
 
-      for (int i = 0; i < mappingsArray.size(); i++) {
-        JSONObject mappingObj = mappingsArray.getJSONObject(i);
-
-        String type = mappingObj.getString("type");
-        String name = mappingObj.getString("name");
-        String parameter = mappingObj.getString("parameter");
-        String action = mappingObj.getString("action");
-
-        // Create a new mapping based on type
-        MidiMapping mapping;
-
-        if (type.equals("cc")) {
-          int channel = mappingObj.getInt("channel");
-          int[] controllerRange = new int[2];
-          controllerRange[0] = mappingObj.getJSONArray("controllerRange").getInt(0);
-          controllerRange[1] = mappingObj.getJSONArray("controllerRange").getInt(1);
-
-          int[] valueRange = new int[2];
-          valueRange[0] = mappingObj.getJSONArray("valueRange").getInt(0);
-          valueRange[1] = mappingObj.getJSONArray("valueRange").getInt(1);
-
-          mapping = new CCMapping(name, parameter, action, channel, controllerRange, valueRange);
-
-          if (mappingObj.hasKey("trackOffset")) {
-            ((CCMapping) mapping).trackOffset = mappingObj.getInt("trackOffset");
-          }
-
-          // Add to lookup table
-          for (int controller = controllerRange[0]; controller <= controllerRange[1]; controller++) {
-            String key = generateKey("cc", channel, controller);
-            midiLookup.put(key, mapping);
-          }
-        } else if (type.equals("sysex")) {
-          mapping = new SysExMapping(name, parameter, action);
-
-          if (mappingObj.hasKey("pattern")) {
-            ((SysExMapping) mapping).setPattern(mappingObj.getString("pattern"));
-            sysExLookup.put(mappingObj.getString("pattern"), (SysExMapping) mapping); // Add to lookup
-          } else if (mappingObj.hasKey("prefix") && mappingObj.hasKey("suffix")) {
-            ((SysExMapping) mapping).setPrefix(mappingObj.getString("prefix"));
-            ((SysExMapping) mapping).setSuffix(mappingObj.getString("suffix"));
-          }
-        } else {
-          println("Unknown mapping type: " + type);
-          continue;
-        }
-
-        if (mappingObj.hasKey("description")) {
-          mapping.description = mappingObj.getString("description");
-        }
-
-        mappings.add(mapping);
+      // Populate available devices
+      availableDevices.clear();
+      for (Object key : devices.keys()) {
+        String device = (String) key; // Explicitly cast to String
+        availableDevices.add(device);
       }
 
-      println("Loaded " + mappings.size() + " MIDI mappings");
+      // Load mappings for the selected device
+      if (devices.hasKey(selectedDevice)) {
+        JSONArray mappingsArray = devices.getJSONObject(selectedDevice).getJSONArray("midiMappings");
+        mappings.clear();
+        for (int i = 0; i < mappingsArray.size(); i++) {
+          JSONObject mappingObj = mappingsArray.getJSONObject(i);
+          String type = mappingObj.getString("type");
+          String name = mappingObj.getString("name");
+          String parameter = mappingObj.getString("parameter");
+          String action = mappingObj.getString("action");
+
+          MidiMapping mapping = createMapping(type, mappingObj, name, parameter, action);
+          if (mapping != null) {
+            if (mappingObj.hasKey("description")) {
+              mapping.description = mappingObj.getString("description");
+            }
+            mappings.add(mapping);
+          }
+        }
+        println("Loaded " + mappings.size() + " MIDI mappings for device: " + selectedDevice);
+      } else {
+        println("No mappings found for device: " + selectedDevice);
+      }
     } catch (Exception e) {
       println("Error loading MIDI mappings: " + e.getMessage());
       e.printStackTrace();
+    }
+  }
+
+  MidiMapping createMapping(String type, JSONObject mappingObj, String name, String parameter, String action) {
+    if (type.equals("cc")) {
+      int channel = mappingObj.getInt("channel");
+      int[] controllerRange = mappingObj.getJSONArray("controllerRange").getIntArray();
+      int[] valueRange = mappingObj.getJSONArray("valueRange").getIntArray();
+
+      CCMapping ccMapping = new CCMapping(name, parameter, action, channel, controllerRange, valueRange);
+      if (mappingObj.hasKey("trackOffset")) {
+        ccMapping.trackOffset = mappingObj.getInt("trackOffset");
+      }
+
+      for (int controller = controllerRange[0]; controller <= controllerRange[1]; controller++) {
+        midiLookup.put(generateKey("cc", channel, controller), ccMapping);
+      }
+      return ccMapping;
+    } else if (type.equals("sysex")) {
+      SysExMapping sysExMapping = new SysExMapping(name, parameter, action);
+      if (mappingObj.hasKey("pattern")) {
+        sysExMapping.setPattern(mappingObj.getString("pattern"));
+        sysExLookup.put(mappingObj.getString("pattern"), sysExMapping);
+      } else if (mappingObj.hasKey("prefix") && mappingObj.hasKey("suffix")) {
+        sysExMapping.setPrefix(mappingObj.getString("prefix"));
+        sysExMapping.setSuffix(mappingObj.getString("suffix"));
+      }
+      return sysExMapping;
+    } else {
+      println("Unknown mapping type: " + type);
+      return null;
     }
   }
 

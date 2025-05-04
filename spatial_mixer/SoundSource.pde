@@ -24,12 +24,14 @@ class SoundSource {
   
 
   void updatePosition() {
+    println("Updating position for source with radius: " + radius + ", azimuth: " + azimuth + ", zenith: " + zenith);
+    println("positionUpdated: " + positionUpdated);
     if (!positionUpdated) return; // Skip if already updated
     // Convert spherical to Cartesian coordinates
     x = radius * sin(zenith) * cos(azimuth);
     z = radius * sin(zenith) * sin(azimuth);
     y = -radius * cos(zenith); // Flip the Y-axis
-    positionUpdated = false; // Reset flag
+    positionUpdated = true; // Reset flag
   }
 
 

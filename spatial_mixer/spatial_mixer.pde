@@ -26,8 +26,7 @@ TrackManager trackManager;
 VisualizationManager visualizationManager;
 CubeRenderer cubeRenderer;
 MidiBus midiBus; // MIDI connection
-OscP5 oscP5;   // OSC instance for receiving messages
-NetAddress reaper; // NetAddress for sending messages to Reaper
+OscHelper oscHelper; // OSC Helper instance
 
 MidiMappingManager midiManager; // MIDI mapping object
 String midiMappingFile = "data/midi_mapping.json";
@@ -53,14 +52,14 @@ Track masterTrack; // Declare a master track
 HashMap<String, Consumer<OscMessage>> oscHandlers = new HashMap<>();
 
 void setup() {
-  size(1000, 700, P3D);
+  size(1000,700,P3D); // Initialize the window in full-screen mode with P3D renderer
 
   // Initialize the layout manager
   layoutManager = new LayoutManager(width, height);
 
   // Initialize the MIDI Mapping Manager and load the mappings
   midiManager = new MidiMappingManager();
-  midiManager.loadMappings(midiMappingFile);
+  midiManager.loadMappings(midiMappingFile, "Yamaha 02R96-1");
   
   // Initialize ControlP5
   cp5 = new ControlP5(this);
@@ -74,19 +73,21 @@ void setup() {
   uiManager.setContainer(layoutManager.uiControlsArea);
   visualizationManager.setContainer(layoutManager.mainViewArea);
 
-  // Initialize OSC
-  oscP5 = new OscP5(this, 8000); // Listen on port 8000
-  reaper = new NetAddress("127.0.0.1", 8001); // Send to Reaper on port 8001
-  
+  // Initialize OSC Helper
+  oscHelper = new OscHelper(this, 8000, "127.0.0.1", 8001, new ParentCallback() {
+    public void onOscMessageReceived(OscMessage msg) {
+      handleOscMessage(msg);
+    }
+  });
   
   // Initialize sound sources and tracks
   for (int i = 0; i < 7; i++) {
-    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300));
+    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper));
     soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
   }
   
   // Initialize master track to the left of Track 1
-  masterTrack = new Track(0, "Master", 70, height - 300);
+  masterTrack = new Track(0, "Master", 70, height - 300, oscHelper);
 
 
 // Initialize track manager
@@ -94,7 +95,7 @@ void setup() {
   trackManager.setContainer(layoutManager.trackControlsArea);
 
   // Setup UI controls
-  uiManager.setupControls(radius, azimuth, zenith, boundarySize);
+  uiManager.setupControls(radius, azimuth, zenith, boundarySize, midiManager.availableDevices);
   
   // Initialize MIDI connection
   MidiBus.list(); // List available MIDI devices in the console
@@ -140,8 +141,23 @@ void setup() {
   });
 }
 
+void handleOscMessage(OscMessage msg) {
+  String pattern = msg.addrPattern();
+  println("[OSC] Received message: " + pattern);
+  uiManager.logMessage("[OSC] " + pattern);
+
+  // Match the pattern dynamically
+  Consumer<OscMessage> handler = findOscHandler(pattern);
+  if (handler != null) {
+    handler.accept(msg);
+  } else {
+    println("Unhandled OSC message: " + pattern);
+  }
+}
+
 public void controllerChange(int channel, int number, int value) {
   println("[MIDI CC] Channel: " + channel + ", Number: " + number + ", Value: " + value);
+  uiManager.logMessage("[MIDI CC] Ch: " + channel + ", Num: " + number + ", Val: " + value);
 
   // Use the lookup table to find the mapping
   MidiMapping mapping = midiManager.findMappingForCC(channel, number);
@@ -159,7 +175,7 @@ public void controllerChange(int channel, int number, int value) {
             source.radius = radius;
             source.updatePosition();
             cp5.getController("radius").setValue(source.radius);
-            sendOscVolume(selectedSource + 1, normalizedValue);
+            oscHelper.sendOscVolume(selectedSource + 1, normalizedValue);
           } 
           else if (mapping.parameter.equals("azimuth")) {
             float azimuth = map(normalizedValue, 0, 1, 0, TWO_PI);
@@ -199,7 +215,7 @@ public void controllerChange(int channel, int number, int value) {
           if (trackNum >= 0 && trackNum < tracks.size()) {
             boolean muted = value > 63; // Consider values > 63 as mute ON
             tracks.get(trackNum).setMuted(muted);
-            sendOscMute(trackNum + 1, muted);
+            oscHelper.sendOscMute(trackNum + 1, muted);
           }
         }
         break;
@@ -207,7 +223,7 @@ public void controllerChange(int channel, int number, int value) {
       case "toggleMasterMute":
         boolean muted = value > 63;
         masterTrack.setMuted(muted);
-        sendOscMessage("/master/mute", muted ? 1 : 0);
+        oscHelper.sendOscMute(0, muted); // Use OscHelper to send mute message
         break;
         
       case "setTrackVolume":
@@ -221,14 +237,14 @@ public void controllerChange(int channel, int number, int value) {
               SoundSource source = soundSources.get(trackNum);
               source.setVolume(normalizedValue);
             }
-            sendOscVolume(trackNum + 1, normalizedValue);
+            oscHelper.sendOscVolume(trackNum + 1, normalizedValue);
           }
         }
         break;
         
       case "setMasterVolume":
         masterTrack.setVolume(normalizedValue);
-        sendOscMessage("/track/volume", normalizedValue);
+        oscHelper.sendOscVolume(0, normalizedValue); // Use OscHelper to send volume message
         break;
         
       case "setPan":
@@ -246,14 +262,14 @@ public void controllerChange(int channel, int number, int value) {
                 cp5.getController("zenith").setValue(source.zenith);
               }
             }
-            sendOscMessage("/track/" + (trackNum + 1) + "/zenith", zenith);
+            oscHelper.sendOscPan(trackNum + 1, zenith);
           }
         }
         break;
         
       case "setMasterPan":
         float pan = map(normalizedValue, 0, 1, -1, 1);
-        sendOscMessage("/track/pan", pan);
+        oscHelper.sendOscPan(0, pan); // Use OscHelper to send pan message
         break;
     }
   }
@@ -269,6 +285,7 @@ void rawMidi(byte[] data) {
       hexString += String.format("%02X ", data[i] & 0xFF);
     }
     println(hexString.trim());
+    uiManager.logMessage("[MIDI SysEx] " + hexString.trim());
     
     // Find matching mappings for this SysEx message
     ArrayList<MidiMapping> matches = midiManager.findMappingsForSysEx(data);
@@ -282,7 +299,7 @@ void rawMidi(byte[] data) {
           if (data.length >= 5) {
             float volume = map(data[4] & 0xFF, 0, 127, 0, 1);
             masterTrack.setVolume(volume);
-            sendOscMessage("/track/volume", volume);
+            oscHelper.sendOscVolume(0, volume); // Use OscHelper to send volume message
           }
           break;
           
@@ -294,7 +311,7 @@ void rawMidi(byte[] data) {
             
             if (trackNum < tracks.size()) {
               tracks.get(trackNum).setSoloed(solo);
-              sendOscSolo(trackNum + 1, solo);
+              oscHelper.sendOscSolo(trackNum + 1, solo); // Use OscHelper to send solo message
             }
           }
           break;
@@ -304,7 +321,7 @@ void rawMidi(byte[] data) {
           if (data.length >= 13) {
             boolean solo = (data[12] & 0xFF) == 1;
             masterTrack.setSoloed(solo);
-            sendOscMessage("/track/solo", solo ? 1 : 0);
+            oscHelper.sendOscSolo(0, solo); // Use OscHelper to send solo message
           }
           break;
           
@@ -345,7 +362,7 @@ void rawMidi(byte[] data) {
                 }
                 
                 // Send OSC updates
-                sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+                oscHelper.sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
               } else {
                 // Store X position for later
                 source.xNormalized = xNormalized;
@@ -393,7 +410,7 @@ void rawMidi(byte[] data) {
                 }
                 
                 // Send OSC updates
-                sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+                oscHelper.sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
               } else {
                 // Store Y position for later
                 source.yNormalized = yNormalized;
@@ -470,6 +487,7 @@ int parseTrackNumber(String addrPattern) {
 public void noteOn(int channel, int note, int velocity) {
   // Log the incoming MIDI note message
   println("[MIDI NOTE] Channel: " + channel + ", Note: " + note + ", Velocity: " + velocity);
+  uiManager.logMessage("[MIDI NOTE] Ch: " + channel + ", Note: " + note + ", Vel: " + velocity);
 
   int sourceIndex = note - 36; // Assuming note 36 corresponds to source 0
   if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {
@@ -482,16 +500,7 @@ public void noteOn(int channel, int note, int velocity) {
 }
 
 public void oscEvent(OscMessage msg) {
-  String pattern = msg.addrPattern();
-  println("[OSC] Received message: " + pattern);
-
-  // Match the pattern dynamically
-  Consumer<OscMessage> handler = findOscHandler(pattern);
-  if (handler != null) {
-    handler.accept(msg);
-  } else {
-    println("Unhandled OSC message: " + pattern);
-  }
+  handleOscMessage(msg);
 }
 
 Consumer<OscMessage> findOscHandler(String messagePattern) {
@@ -513,29 +522,39 @@ boolean matchesOscPattern(String handlerPattern, String messagePattern) {
 void draw() {
   background(20, 25, 35);
 
-   
   // Draw track controls (bottom)
   trackManager.draw();
-  
+
   // Draw main visualization (top)
   visualizationManager.draw(soundSources, selectedSource);
-  
+
   // Draw UI controls (right)
   uiManager.draw(soundSources.size(), selectedSource);
-
 }
 
+void mousePressed() {
+  trackManager.handleMousePressed(mouseX, mouseY);
+}
+
+void mouseDragged() {
+  trackManager.handleMouseDragged(mouseX, mouseY);
+}
+
+void mouseReleased() {
+  trackManager.handleMouseReleased();
+}
 
 // Window resize handling
 void windowResized() {
   layoutManager.updateLayout(width, height);
   uiManager.setContainer(layoutManager.uiControlsArea);
+  uiManager.updatePositions(); // Ensure UI elements are repositioned
   visualizationManager.setContainer(layoutManager.mainViewArea);
   trackManager.setContainer(layoutManager.trackControlsArea);
 }
 
 void keyPressed() {
-    if (key == 'v' || key == 'V') {
+  if (key == 'v' || key == 'V') {
     visualizationManager.toggleMode();
   }
   // Select sound source using number keys
@@ -551,66 +570,11 @@ void keyPressed() {
       cp5.getController("zenith").setValue(source.zenith);
     }
   }
-  
 
-}
-
-
-
-
-/**
-  * Send a volume message to a specific track
-  */
-public void sendOscVolume(int trackNumber, float volume) {
-  sendOscMessage("/track/" + trackNumber + "/volume", volume);
-  println("Sent volume " + volume + " to track " + trackNumber);
-}
-
-/**
-  * Send a pan message to a specific track
-  */
-public void sendOscPan(int trackNumber, float pan) {
-  sendOscMessage("/track/" + trackNumber + "/pan", pan);
-  println("Sent pan " + pan + " to track " + trackNumber);
-}
-
-/**
-  * Send a mute message to a specific track
-  */
-public void sendOscMute(int trackNumber, boolean mute) {
-  sendOscMessage("/track/" + trackNumber + "/mute", mute ? 1 : 0);
-  println("Sent mute " + mute + " to track " + trackNumber);
-}
-
-/**
-  * Send a solo message to a specific track
-  */
-public void sendOscSolo(int trackNumber, boolean solo) {
-  sendOscMessage("/track/" + trackNumber + "/solo", solo ? 1 : 0);
-  println("Sent solo " + solo + " to track " + trackNumber);
-}
-
-/**
-  * Send a generic OSC message
-  * @param address OSC address pattern
-  * @param args Arguments to include in the message
-  */
-public void sendOscMessage(String address, Object... args) {
-  try {
-    OscMessage msg = new OscMessage(address);
-    for (Object arg : args) {
-      if (arg instanceof Integer) {
-        msg.add((int) arg); // Add integer argument
-      } else if (arg instanceof Float) {
-        msg.add((float) arg); // Add float argument
-      } else if (arg instanceof String) {
-        msg.add((String) arg); // Add string argument
-      } else {
-        println("Unsupported argument type: " + arg.getClass().getName());
-      }
-    }
-    oscP5.send(msg, reaper);
-  } catch (Exception e) {
-    println("Error sending OSC message: " + e.getMessage());
+  // Scroll the log window
+  if (keyCode == UP) {
+    uiManager.scrollLog(-1); // Scroll up
+  } else if (keyCode == DOWN) {
+    uiManager.scrollLog(1); // Scroll down
   }
 }
