@@ -52,7 +52,7 @@ class UIManager {
     cp5.addSlider("radius")
        .setPosition(sliderX, container.y + 250)
        .setSize((int)(container.width - 40), 30) // Cast width to int
-       .setRange(50, boundarySize - 20)
+       .setRange(50, boundarySize/2)
        .setValue(radius)
        .setCaptionLabel("Radius")
        .setColorCaptionLabel(color(255, 255, 200))

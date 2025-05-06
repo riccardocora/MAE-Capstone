@@ -85,7 +85,7 @@ class View3D {
     float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
 
     // Translate to the center of the container in all three dimensions
-    translate(container.x + container.width / 2 + boundarySize / 6, container.y + container.height / 2, 0);
+    translate(container.x + container.width / 2 , container.y + container.height / 2, 0);
 
     // Apply scaling to fit the cube within the container
     scale(scaleFactor);

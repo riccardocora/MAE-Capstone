@@ -140,12 +140,46 @@ void setup() {
     }
   });
 }
-
 void handleOscMessage(OscMessage msg) {
   String pattern = msg.addrPattern();
-  println("[OSC] Received message: " + pattern);
-  uiManager.logMessage("[OSC] " + pattern);
-
+  StringBuilder fullMessage = new StringBuilder();
+  
+  fullMessage.append("[OSC] Received message: ")
+            .append(pattern)
+            .append(" | Arguments: [");
+  
+  // Extract and append all arguments
+  for (int i = 0; i < msg.typetag().length(); i++) {
+    char type = msg.typetag().charAt(i);
+    
+    if (i > 0) fullMessage.append(", ");
+    
+    // Handle different argument types
+    switch (type) {
+      case 'i':
+        fullMessage.append("int: ").append(msg.get(i).intValue());
+        break;
+      case 'f':
+        fullMessage.append("float: ").append(msg.get(i).floatValue());
+        break;
+      case 's':
+        fullMessage.append("string: \"").append(msg.get(i).stringValue()).append("\"");
+        break;
+      case 'b':
+        fullMessage.append("blob: ").append(msg.get(i).blobValue().length).append(" bytes");
+        break;
+      default:
+        fullMessage.append(type).append(": ").append(msg.get(i));
+    }
+  }
+  
+  fullMessage.append("]");
+  String logMessage = fullMessage.toString();
+  
+  // Print to console and log to UI
+  println(logMessage);
+  uiManager.logMessage(logMessage);
+  
   // Match the pattern dynamically
   Consumer<OscMessage> handler = findOscHandler(pattern);
   if (handler != null) {
