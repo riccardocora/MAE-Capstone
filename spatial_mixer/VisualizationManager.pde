@@ -7,6 +7,9 @@ class VisualizationManager {
   View2D view2D;
   Rectangle container;  
   boolean is3DMode = true; // Default to 3D mode
+  float roll = 0;  // Rotation around the Z-axis
+  float yaw = 0;   // Rotation around the Y-axis
+  float pitch = 0; // Rotation around the X-axis
   
   // Constructor
   VisualizationManager(float boundarySize, float headSize) {
@@ -26,7 +29,7 @@ class VisualizationManager {
 
     pushMatrix();
     if (is3DMode) {
-      view3D.draw(soundSources, selectedSource, container);
+      view3D.draw(soundSources, selectedSource, container, roll, yaw, pitch);
     } else {
       view2D.draw(soundSources, selectedSource, container);
     }
@@ -59,6 +62,18 @@ class VisualizationManager {
     view3D.updateParameters(boundarySize, headSize);
     view2D.updateParameters(boundarySize, headSize);
   }
+
+  void setRoll(float roll) {
+    this.roll = roll;
+  }
+
+  void setYaw(float yaw) {
+    this.yaw = yaw;
+  }
+
+  void setPitch(float pitch) {
+    this.pitch = pitch;
+  }
 }
 
 /**
@@ -69,30 +84,34 @@ class View3D {
   float boundarySize;
   float headSize;
   CubeRenderer cubeRenderer;
-  
+
   // Constructor
   View3D(float boundarySize, float headSize) {
     this.boundarySize = boundarySize;
     this.headSize = headSize;
     this.cubeRenderer = new CubeRenderer(boundarySize);
   }
-  
+
   // Draw the 3D scene
-  void draw(ArrayList<SoundSource> soundSources, int selectedSource, Rectangle container) {
+  void draw(ArrayList<SoundSource> soundSources, int selectedSource, Rectangle container, float roll, float yaw, float pitch) {
     pushMatrix();
 
     // Calculate the scale factor to fit the cube within the container
     float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
 
     // Translate to the center of the container in all three dimensions
-    translate(container.x + container.width / 2 , container.y + container.height / 2, 0);
+    translate(container.x + container.width / 2, container.y + container.height / 2, 0);
+
+    // Draw the central head and its axes (fixed, no rotation)
+    drawCentralHeadAndAxes();
 
     // Apply scaling to fit the cube within the container
     scale(scaleFactor);
 
-    // Adjust rotation for a better perspective view
-    rotateX(radians(-33));  // Tilt the view slightly downward
-    rotateY(0);             // No rotation on the Y-axis
+    // Apply rotations (roll, yaw, pitch) to the cube and sound sources
+    rotateZ(roll);  // Roll (Z-axis)
+    rotateY(yaw);   // Yaw (Y-axis)
+    rotateX(pitch); // Pitch (X-axis)
 
     // Set up lighting
     ambientLight(50, 50, 50);
@@ -101,17 +120,41 @@ class View3D {
     // Draw the cube frame
     cubeRenderer.drawCubeFrame(container);
 
-    // Draw the coordinate system
-    cubeRenderer.drawCoordinateSystem(container);
+    // Draw the sound sources
+    drawSoundSources(soundSources, selectedSource);
 
-    // Draw the central head (fixed at the center of the cube)
+    popMatrix();
+  }
+
+  // Draw the central head and its axes (fixed, no rotation)
+  void drawCentralHeadAndAxes() {
     pushMatrix();
+
+    // Draw the central head (sphere)
     noStroke();
     fill(220, 190, 170);
     sphere(headSize);
-    popMatrix();
 
-    // Draw sound sources
+    // Draw the coordinate axes
+    strokeWeight(2);
+
+    // X-axis (red)
+    stroke(255, 0, 0);
+    line(0, 0, 0, headSize * 2, 0, 0);
+
+    // Y-axis (green)
+    stroke(0, 255, 0);
+    line(0, 0, 0, 0, -headSize * 2, 0);
+
+    // Z-axis (blue)
+    stroke(0, 0, 255);
+    line(0, 0, 0, 0, 0, headSize * 2);
+
+    popMatrix();
+  }
+
+  // Draw the sound sources
+  void drawSoundSources(ArrayList<SoundSource> soundSources, int selectedSource) {
     for (int i = 0; i < soundSources.size(); i++) {
       SoundSource source = soundSources.get(i);
       boolean isSelected = (i == selectedSource);
@@ -122,10 +165,8 @@ class View3D {
       strokeWeight(1);
       line(0, 0, 0, source.x, source.y, source.z);
     }
-
-    popMatrix();
   }
-  
+
   // Update visualization parameters
   void updateParameters(float boundarySize, float headSize) {
     this.boundarySize = boundarySize;
@@ -133,6 +174,7 @@ class View3D {
     this.cubeRenderer = new CubeRenderer(boundarySize);
   }
 }
+
 /**
  * View2D
  * Handles the 2D perspective views (front, top, and side)

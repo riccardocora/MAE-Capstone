@@ -32,8 +32,11 @@ MidiMappingManager midiManager; // MIDI mapping object
 String midiMappingFile = "data/midi_mapping.json";
 
 // Data structures to store track and sound source information
+final int NUM_TRACKS = 7; // Or any default you want
+
 ArrayList<Track> tracks = new ArrayList<Track>();
 ArrayList<SoundSource> soundSources = new ArrayList<SoundSource>();
+SourceManager sourceManager;
 int selectedSource = 0;
 
 // Central subject
@@ -52,17 +55,25 @@ Track masterTrack; // Declare a master track
 HashMap<String, Consumer<OscMessage>> oscHandlers = new HashMap<>();
 
 void setup() {
-  size(1000,700,P3D); // Initialize the window in full-screen mode with P3D renderer
+  fullScreen(P3D);
 
-  // Initialize the layout manager
-  layoutManager = new LayoutManager(width, height);
-
-  // Initialize the MIDI Mapping Manager and load the mappings
-  midiManager = new MidiMappingManager();
-  midiManager.loadMappings(midiMappingFile, "Yamaha 02R96-1");
-  
   // Initialize ControlP5
   cp5 = new ControlP5(this);
+
+  // Initialize layout manager
+  layoutManager = new LayoutManager(width, height);
+
+  // Initialize sound sources and tracks with matching indices
+  for (int i = 0; i < NUM_TRACKS; i++) {
+    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper, i));
+    soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
+  }
+
+  // Initialize source manager with the same number of tracks
+  sourceManager = new SourceManager(cp5, NUM_TRACKS);
+  sourceManager.setContainer(layoutManager.sourceControlsArea);
+
+
   
   // Initialize component managers
   cubeRenderer = new CubeRenderer(boundarySize);
@@ -80,14 +91,8 @@ void setup() {
     }
   });
   
-  // Initialize sound sources and tracks
-  for (int i = 0; i < 7; i++) {
-    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper));
-    soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
-  }
-  
   // Initialize master track to the left of Track 1
-  masterTrack = new Track(0, "Master", 70, height - 300, oscHelper);
+  masterTrack = new Track(0, "Master", 70, height - 300, oscHelper,0);
 
 
 // Initialize track manager
@@ -98,8 +103,13 @@ void setup() {
   uiManager.setupControls(radius, azimuth, zenith, boundarySize, midiManager.availableDevices);
   
   // Initialize MIDI connection
-  MidiBus.list(); // List available MIDI devices in the console
-  midiBus = new MidiBus(this, "Yamaha 02R96-1", "Yamaha 02R96-1"); // Replace with your MIDI device name
+  
+//  if (availableDevices.length > 0) {
+//      midiBus = new MidiBus(this, availableDevices[0], availableDevices[0]); // Use the first available device
+//     println("MIDI device initialized: " + availableDevices[0]);
+//   } else {
+//     println("No MIDI devices found. MIDI functionality will be disabled.");
+//   }
 
   // Initialize OSC handlers
   oscHandlers.put("/track/*/volume", msg -> {
@@ -139,6 +149,20 @@ void setup() {
       tracks.get(trackNum - 1).setSoloed(soloed);
     }
   });
+
+  MidiBus.list(); // List available MIDI devices in the console
+  String[] availableDevices = MidiBus.availableInputs();
+  if (availableDevices.length > 0) {
+      midiBus = new MidiBus(this, 0, -1);
+      println("MIDI device initialized: " + availableDevices[0]);
+  } else {
+      println("No MIDI devices found. MIDI functionality will be disabled.");
+  }
+
+    // Initialize the MIDI Mapping Manager and load the mappings
+  midiManager = new MidiMappingManager();
+  midiManager.loadMappings(midiMappingFile, "Yamaha 02R96-1");
+  
 }
 void handleOscMessage(OscMessage msg) {
   String pattern = msg.addrPattern();
@@ -554,7 +578,13 @@ boolean matchesOscPattern(String handlerPattern, String messagePattern) {
 }
 
 void draw() {
-  background(20, 25, 35);
+  background(30);
+
+  // Draw layout borders
+  layoutManager.drawContainerBorders();
+
+  // Draw source manager
+  sourceManager.draw();
 
   // Draw track controls (bottom)
   trackManager.draw();
@@ -564,20 +594,28 @@ void draw() {
 
   // Draw UI controls (right)
   uiManager.draw(soundSources.size(), selectedSource);
+  uiManager.setSliderMode(sourceManager.trackSources.get(selectedSource).mode);
+}
+
+
+void mouseWheel(MouseEvent event) {
+  sourceManager.mouseWheel(event);
 }
 
 void mousePressed() {
+  sourceManager.mousePressed();
   trackManager.handleMousePressed(mouseX, mouseY);
 }
 
 void mouseDragged() {
+  sourceManager.mouseDragged();
   trackManager.handleMouseDragged(mouseX, mouseY);
 }
 
 void mouseReleased() {
+  sourceManager.mouseReleased();
   trackManager.handleMouseReleased();
 }
-
 // Window resize handling
 void windowResized() {
   layoutManager.updateLayout(width, height);
@@ -611,4 +649,59 @@ void keyPressed() {
   } else if (keyCode == DOWN) {
     uiManager.scrollLog(1); // Scroll down
   }
+}
+void addSource() {
+  int idx = tracks.size();
+  soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
+  tracks.add(new Track(idx + 1, "Track " + (idx + 1), 150 + idx * 70, height - 300, oscHelper, idx));
+  sourceManager.addTrackSource();
+  trackManager.updateTrackPositions();
+  sourceManager.updateTrackPositions();
+}
+
+void removeSource(int idx) {
+  if (idx >= 0 && idx < tracks.size()) {
+    soundSources.remove(idx);
+    tracks.remove(idx);
+    sourceManager.removeTrackSource(idx);
+    // Update indices for all remaining tracks and sources
+    for (int i = 0; i < tracks.size(); i++) {
+      tracks.get(i).index = i;
+      tracks.get(i).name = sourceManager.trackSources.get(i).name; // Keep names in sync
+    }
+    trackManager.updateTrackPositions();
+    sourceManager.updateTrackPositions();
+  }
+}
+
+void renameSource(int idx, String newName) {
+  if (idx >= 0 && idx < tracks.size()) {
+    tracks.get(idx).name = newName;
+    sourceManager.trackSources.get(idx).name = newName;
+    sourceManager.trackSources.get(idx).nameField.setText(newName);
+  }
+}
+
+void onSourceModeChange(int idx, int mode) {
+  if (idx == selectedSource) {
+   // uiManager.setSliderMode(mode);
+  }
+}
+
+void selectSource(int idx) {
+  selectedSource = idx;
+  int mode = sourceManager.trackSources.get(idx).mode;
+  uiManager.setSliderMode(mode);
+}
+
+// In your main sketch:
+public void controlEvent(ControlEvent event) {
+    if (event.isGroup()) {
+        String name = event.getGroup().getName();
+        if (name.startsWith("sourceType_")) {
+            int extractedIndex = Integer.parseInt(name.substring(name.lastIndexOf("_") + 1));
+            int mode = (int)event.getGroup().getValue();
+            onSourceModeChange(extractedIndex, mode);
+        }
+    }
 }

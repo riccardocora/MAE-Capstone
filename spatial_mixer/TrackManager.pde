@@ -110,6 +110,7 @@ class Track {
   boolean muted = false;
   boolean soloed = false;
   boolean isDragging = false; // Whether the fader is being dragged
+  int index; // Unique index for this track
 
   // Track dimensions
   float width = 60;
@@ -117,12 +118,13 @@ class Track {
 
   OscHelper oscHelper; // Reference to the OscHelper instance
 
-  Track(int id, String name, float x, float y, OscHelper oscHelper) {
+  Track(int id, String name, float x, float y, OscHelper oscHelper, int index) {
     this.id = id;
     this.name = name;
     this.x = x;
     this.y = y;
-    this.oscHelper = oscHelper; // Assign the OscHelper instance
+    this.oscHelper = oscHelper;
+    this.index = index;
   }
 
   void setPosition(float x, float y) {

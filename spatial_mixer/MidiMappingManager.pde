@@ -20,6 +20,9 @@ class MidiMappingManager {
         availableDevices.add(device);
       }
 
+      println("Selected device: " + selectedDevice);
+      println("Available devices: " + availableDevices);
+      println("Json path file"+ jsonFilePath);
       // Load mappings for the selected device
       if (devices.hasKey(selectedDevice)) {
         JSONArray mappingsArray = devices.getJSONObject(selectedDevice).getJSONArray("midiMappings");

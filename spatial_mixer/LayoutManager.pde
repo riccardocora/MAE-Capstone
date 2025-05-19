@@ -7,10 +7,11 @@ class LayoutManager {
   Rectangle mainViewArea;
   Rectangle trackControlsArea;
   Rectangle uiControlsArea;
+  Rectangle sourceControlsArea; // New area for source controls
   
   // Padding and sizing constants
   final int PADDING = 10;
-  final int TRACK_AREA_HEIGHT = 200;
+  final int TRACK_AREA_HEIGHT = 220;
   final int UI_AREA_WIDTH = 280;
   
   LayoutManager(int windowWidth, int windowHeight) {
@@ -35,12 +36,20 @@ class LayoutManager {
       UI_AREA_WIDTH,
       windowHeight - trackControlsArea.height - 3 * PADDING
     );
+
+    // Left source controls area (symmetric to UI controls area)
+    sourceControlsArea = new Rectangle(
+      PADDING,
+      PADDING,
+      UI_AREA_WIDTH,
+      windowHeight - trackControlsArea.height - 3 * PADDING
+    );
     
     // Main view area (takes remaining space)
     mainViewArea = new Rectangle(
+      sourceControlsArea.x + sourceControlsArea.width + PADDING,
       PADDING,
-      PADDING,
-      windowWidth - uiControlsArea.width - 3 * PADDING,
+      windowWidth - uiControlsArea.width - sourceControlsArea.width - 4 * PADDING,
       windowHeight - trackControlsArea.height - 3 * PADDING
     );
   }
@@ -59,6 +68,9 @@ class LayoutManager {
     
     // UI controls container
     rect(uiControlsArea.x, uiControlsArea.y, uiControlsArea.width, uiControlsArea.height, 10);
+
+    // Source controls container
+    rect(sourceControlsArea.x, sourceControlsArea.y, sourceControlsArea.width, sourceControlsArea.height, 10);
   }
 }
 
