@@ -107,7 +107,7 @@ class CustomSlider {
     // Draw label
     fill(labelColor);
     textAlign(LEFT, CENTER);
-    textSize(height * 0.5);
+    textSize(height );
     text(label, x, y - height * 0.7);
     
     // Draw value

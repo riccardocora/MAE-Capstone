@@ -182,7 +182,8 @@ class UIManager {
       .setItemHeight(20)
       .setColorBackground(color(100, 100, 120))
       .setColorForeground(color(150, 150, 200))
-      .setColorActive(color(255, 255, 255));
+      .setColorActive(color(255, 255, 255))
+      .setVisible(false); // Initially hidden
 
     for (String device : availableDevices) {
       midiDeviceDropdown.addItem(device, device);
@@ -279,7 +280,7 @@ class UIManager {
     text("  • B - Reset cube rotation only", container.x + 20, instructionsY + 335);
 
     // Draw message log window
-    drawMessageLog();
+    //drawMessageLog();
 
 
 

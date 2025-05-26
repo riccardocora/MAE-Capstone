@@ -228,20 +228,20 @@ class Track {
 
 
   void draw(boolean isSelected) {
-      // Calculate proportional dimensions based on current height
-      float labelHeight = height * LABEL_RATIO;
-      float buttonHeight = height * BUTTON_RATIO;
-      float padding = height * PADDING_RATIO;
-      
-      // Calculate positions
-      float labelY = y + labelHeight/2;
-      float buttonY = y + height - buttonHeight - padding;
-      float faderTop = y + labelHeight + padding;
-      float faderBottom = buttonY - padding;
-      float faderHeight = faderBottom - faderTop;
-        // Determine background color based on source type
-      color bgColor = color(50, 55, 65); // Default background color
-  // Highlight the selected track with yellow background
+    // Calculate proportional dimensions based on current height
+    float labelHeight = height * LABEL_RATIO;
+    float buttonHeight = height * BUTTON_RATIO;
+    float padding = height * PADDING_RATIO;
+    
+    // Calculate positions
+    float labelY = y + labelHeight/2;
+    float buttonY = y + height - buttonHeight - padding;
+    float faderTop = y + labelHeight + padding;
+    float faderBottom = buttonY - padding;
+    float faderHeight = faderBottom - faderTop;
+      // Determine background color based on source type
+    color bgColor = color(50, 55, 65); // Default background color
+    // Highlight the selected track with yellow background
     if (isSelected) {
       bgColor = color(225, 140, 60); // Yellow for selected track
     } else {

@@ -111,9 +111,8 @@ class SourceManager {
   // Callback for the add source button
   void addSourceCallback() {
     addSource(); // Calls the global addSource() in the main sketch
-  }
-
-  // Add a new track source
+  }  // Add a new track source - this should only be called directly for testing
+  // Normal usage is through the addSourceCallback() which calls the global addSource()
   void addTrackSource() {
     int idx = trackSources.size();
     trackSources.add(new TrackSource("Track " + (idx + 1), idx, this));
@@ -243,15 +242,51 @@ class SourceManager {
   
   // Handle mouse events for scrollbar
   void mousePressed() {
-    scrollbar.handleMousePressed();
+    if (container == null) return;
+
+    // Check if the mouse is over the add button
+    if (mouseX > container.x + container.width - ADD_BUTTON_SIZE - 10 && 
+        mouseX < container.x + container.width - 10 && 
+        mouseY > container.y + (HEADER_HEIGHT - ADD_BUTTON_SIZE)/2 && 
+        mouseY < container.y + (HEADER_HEIGHT + ADD_BUTTON_SIZE)/2) {
+      // Add new source/track
+      addSourceCallback();
+    }
+    
+    // Check scrollbar
+    if (scrollbar.handleMousePressed()) {
+      updateTrackPositions();
+    }
+    
+    // Check if the mouse is over any entry
+    for (TrackSource entry : trackSources) {
+      entry.handleMousePressed(mouseX, mouseY);
+    }
+
   }
-  
+
   void mouseDragged() {
-    scrollbar.handleMouseDragged();
+     if (container == null) return;
+    
+    if (scrollbar.handleMouseDragged()) {
+      updateTrackPositions();
+    }
+    
+    // Forward to entries
+    for (TrackSource entry : trackSources) {
+      entry.handleMouseDragged(mouseX, mouseY);
+    }
   }
   
   void mouseReleased() {
+     if (container == null) return;
+    
     scrollbar.handleMouseReleased();
+    
+    // Forward to entries
+    for (TrackSource entry : trackSources) {
+      entry.handleMouseReleased();
+    }
   }
 
   void handleRenameTrack(int idx, String newName) {

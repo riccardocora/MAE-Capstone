@@ -735,6 +735,7 @@ void windowResized() {
   uiManager.updatePositions(); // Ensure UI elements are repositioned
   visualizationManager.setContainer(layoutManager.mainViewArea);
   trackManager.setContainer(layoutManager.trackControlsArea);
+  sourceManager.setContainer(layoutManager.sourceControlsArea);
 }
 
 void keyPressed() {
@@ -785,13 +786,8 @@ void keyPressed() {
   if (key >= '1' && key <= '9') {
     int sourceIndex = key - '1';
     if (sourceIndex < soundSources.size()) {
-      selectedSource = sourceIndex;
-      
-      // Update sliders to reflect the selected source
-      SoundSource source = soundSources.get(selectedSource);
-      cp5.getController("radius").setValue(source.radius);
-      cp5.getController("azimuth").setValue(source.azimuth);
-      cp5.getController("zenith").setValue(source.zenith);
+      selectSource(sourceIndex);
+
     }
   }
 

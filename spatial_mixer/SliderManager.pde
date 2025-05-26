@@ -39,13 +39,13 @@ class SliderManager {
     
     float sliderX = container.x + 20;
     float sliderY = container.y + 250;
-    float sliderSpacing = 50;
+    float sliderSpacing = 20;
     float sliderWidth = container.width - 40;
     
     int i = 0;
     for (CustomSlider slider : sliders.values()) {
       slider.setPosition(sliderX, sliderY + i * sliderSpacing);
-      slider.setSize(sliderWidth, 30);
+      slider.setSize(sliderWidth, 15);
       i++;
     }
   }
