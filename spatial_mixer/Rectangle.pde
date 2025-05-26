@@ -1,3 +1,4 @@
+
 // Helper Rectangle class for storing area dimensions
 class Rectangle{
   float x, y, width, height;

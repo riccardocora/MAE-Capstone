@@ -20,6 +20,7 @@ class UIManager {
     this.height = height;
   }
 
+
   // Set the container reference and update positions
   void setContainer(Rectangle container) {
     this.container = container;
@@ -146,9 +147,14 @@ class UIManager {
      .setColorForeground(color(150, 150, 200))
      .setColorActive(color(255, 255, 255))
      .onChange(event -> {
-       visualizationManager.setRoll(event.getController().getValue());
+         float rollValue = event.getController().getValue();
+         visualizationManager.setCubeRoll(rollValue);
+         
+         // Also apply rotation to all sound sources
+         for(SoundSource source : soundSources) {
+           source.setRoll(rollValue);
+         }
      });
-
   cp5.addSlider("yaw")
      .setPosition(sliderX, container.y + 450)
      .setSize((int)(container.width - 40), 30)
@@ -160,9 +166,14 @@ class UIManager {
      .setColorForeground(color(150, 150, 200))
      .setColorActive(color(255, 255, 255))
      .onChange(event -> {
-       visualizationManager.setYaw(event.getController().getValue());
+       float yawValue = event.getController().getValue();
+       visualizationManager.setCubeYaw(yawValue);
+       
+       // Also apply rotation to all sound sources
+       for(SoundSource source : soundSources) {
+         source.setYaw(yawValue);
+       }
      });
-
   cp5.addSlider("pitch")
      .setPosition(sliderX, container.y + 500)
      .setSize((int)(container.width - 40), 30)
@@ -174,9 +185,16 @@ class UIManager {
      .setColorForeground(color(150, 150, 200))
      .setColorActive(color(255, 255, 255))
      .onChange(event -> {
-       visualizationManager.setPitch(event.getController().getValue());
+       float pitchValue = event.getController().getValue();
+       visualizationManager.setCubePitch(pitchValue);
+       
+       // Also apply rotation to all sound sources
+       for(SoundSource source : soundSources) {
+         source.setPitch(pitchValue);
+       }
      });
 }
+
   // Add a message to the log
   void logMessage(String message) {
     messageLog.add(0, message); // Add new message to the top
@@ -222,9 +240,7 @@ class UIManager {
       text(String.format("Radius: %.1f", source.radius), container.x + 20, container.y + 170);
       text(String.format("Azimuth: %.1f° (%.1f rad)", source.azimuth * 180 / PI, source.azimuth), container.x + 20, container.y + 190);
       text(String.format("Zenith: %.1f° (%.1f rad)", source.zenith * 180 / PI, source.zenith), container.x + 20, container.y + 210);
-    }
-
-    // Draw instructions above the log window
+    }    // Draw instructions above the log window
     float instructionsY = container.y + container.height - 375;
     fill(200);
     textSize(12);
@@ -233,6 +249,32 @@ class UIManager {
     text("- Use sliders to position sound sources", container.x + 20, instructionsY + 20);
     text("- Press 1-7 to select sources", container.x + 20, instructionsY + 40);
     text("- Press V to toggle view mode", container.x + 20, instructionsY + 60);
+    
+    fill(255, 220, 220); // Highlight the rotation systems
+    text("Rotation Systems:", container.x + 20, instructionsY + 90);
+    
+    fill(200, 220, 255);
+    text("1. Camera Rotation (View only):", container.x + 20, instructionsY + 110);
+    text("  • Mouse drag or Roll/Yaw/Pitch sliders", container.x + 20, instructionsY + 125);
+    text("  • Only changes view, not actual positions", container.x + 20, instructionsY + 140);
+    
+    fill(255, 200, 200);
+    text("2. Cube Rotation:", container.x + 20, instructionsY + 160);
+    text("  • CubeRoll/CubeYaw/CubePitch sliders", container.x + 20, instructionsY + 175);
+    text("  • Rotates the cube frame only", container.x + 20, instructionsY + 190);
+    
+    fill(220, 255, 220);
+    text("3. Head Rotation (OSC control):", container.x + 20, instructionsY + 210);
+    text("  • /head/roll - Roll (Z-axis)", container.x + 20, instructionsY + 225);
+    text("  • /head/pitch - Pitch (X-axis)", container.x + 20, instructionsY + 240);
+    text("  • /head/yaw - Yaw (Y-axis)", container.x + 20, instructionsY + 255);
+    
+    fill(255, 255, 200);
+    text("Keyboard Controls:", container.x + 20, instructionsY + 275);
+    text("  • V - Toggle 2D/3D view", container.x + 20, instructionsY + 290);
+    text("  • R - Reset ALL rotations", container.x + 20, instructionsY + 305);
+    text("  • C - Reset camera rotation only", container.x + 20, instructionsY + 320);
+    text("  • B - Reset cube rotation only", container.x + 20, instructionsY + 335);
 
     // Draw message log window
     drawMessageLog();
@@ -278,12 +320,12 @@ class UIManager {
     sliderMode = mode;
     updateSliderVisibility();
   }
-
+  
   void updateSliderVisibility() {
     // Stereo/Mono: show radius, azimuth, zenith; hide roll, yaw, pitch
     boolean showStereo = (sliderMode == 0);
     boolean showAmbi = (sliderMode == 1);
-
+    
     if (cp5.getController("radius") != null) cp5.getController("radius").setVisible(showStereo);
     if (cp5.getController("azimuth") != null) cp5.getController("azimuth").setVisible(showStereo);
     if (cp5.getController("zenith") != null) cp5.getController("zenith").setVisible(showStereo);
@@ -293,3 +335,4 @@ class UIManager {
     if (cp5.getController("pitch") != null) cp5.getController("pitch").setVisible(showAmbi);
   }
 }
+

@@ -1,6 +1,6 @@
 /**
  * SourceManager class
- * Manages the source controls area and displays track rectangles with radio buttons.
+ * Manages the source controls area and displays track rectangles with source type indicators.
  * Now includes scrolling functionality.
  */
 class SourceManager {
@@ -8,6 +8,7 @@ class SourceManager {
   ArrayList<TrackSource> trackSources; // List of track sources
   ControlP5 cp5; // ControlP5 instance for UI elements
   Button addSourceButton; // Button to add new track source
+  int selectedSource = 0; // Currently selected source index
   
   // Scrollbar properties
   Scrollbar scrollbar;
@@ -104,12 +105,10 @@ class SourceManager {
     updateTrackPositions();
     updateScrollbar();
   }
-
   // Remove a track source
   void removeTrackSource(int idx) {
     if (idx >= 0 && idx < trackSources.size()) {
       // Remove UI elements for this track
-      cp5.remove("SourceType_" + idx);
       cp5.remove("TrackName_" + idx);
       // Remove the track source
       trackSources.remove(idx);
@@ -123,8 +122,7 @@ class SourceManager {
       updateScrollbar();
     }
   }
-
-  // Update positions of track rectangles and radio buttons
+  // Update positions of track rectangles
   void updateTrackPositions() {
     if (container == null) return;
 
@@ -139,8 +137,7 @@ class SourceManager {
       trackSource.width = container.width - 20 - SCROLLBAR_WIDTH;
       trackSource.height = TRACK_HEIGHT;
 
-      // Update the position of the radio buttons
-      trackSource.radioButtons.setPosition(trackSource.x + trackSource.width - 100, trackSource.y + 10);
+      // Update the position of the text field
       trackSource.nameField.setPosition(trackSource.x + 10, trackSource.y + 35);
 
       yOffset += TRACK_HEIGHT + TRACK_SPACING;
@@ -183,19 +180,20 @@ class SourceManager {
     pushMatrix();
 
     // Create a clipping region for the container (for tracks only)
-    clip((int)container.x, (int)container.y, (int)container.width, (int)container.height);
-
-    // Draw each track source rectangle
+    clip((int)container.x, (int)container.y, (int)container.width, (int)container.height);    // Draw each track source rectangle
     for (TrackSource trackSource : trackSources) {
       // Only draw if within visible area (with some margin)
       if (trackSource.y + trackSource.height >= container.y - TRACK_HEIGHT && 
           trackSource.y <= container.y + container.height + TRACK_HEIGHT) {
-        trackSource.draw();
+        // Check if this is the selected source
+        boolean isSelected = (trackSource.index == selectedSource);
+        trackSource.draw(isSelected);
       }
-      // Hide radio buttons that are outside the visible area
+      
+      // Update visibility of text field based on visibility
       boolean isVisible = trackSource.y + trackSource.height >= container.y && 
                          trackSource.y <= container.y + container.height;
-      trackSource.radioButtons.setVisible(isVisible);
+      trackSource.nameField.setVisible(isVisible);
     }
 
     // Reset the clipping region
@@ -245,68 +243,109 @@ class SourceManager {
         trackManager.tracks.get(idx).name = newName;
       }
     }
+  }  // Check if there's already an Ambi source (mode 1)
+  boolean hasAmbiSource() {
+    for (TrackSource source : trackSources) {
+      if (source.mode == 1) { // 1 = Ambi
+        return true;
+      }
+    }
+    return false;
   }
-
-  void handleSourceModeChange(int idx, int mode) {
-    // Notify the main sketch/UI to update visible sliders
-    onSourceModeChange(idx, mode);
+    // Get the index of the current Ambi source, or -1 if none exists
+  int getAmbiSourceIndex() {
+    for (int i = 0; i < trackSources.size(); i++) {
+      if (trackSources.get(i).mode == 1) { // 1 = Ambi
+        return i;
+      }
+    }
+    return -1; // No Ambi source found
+  }
+  
+  void changeSourceMode(int idx, int newMode) {
+    // Check if we're trying to set a source to Ambi mode
+    if (newMode == 1) { // 1 = Ambi
+      // Check if there's already an Ambi source that's not this one
+      int currentAmbiIdx = getAmbiSourceIndex();
+      if (currentAmbiIdx >= 0 && currentAmbiIdx != idx) {
+        println("Cannot have multiple Ambi sources. Source " + currentAmbiIdx + 
+                " is already in Ambi mode.");
+                
+        // Display a temporary notification
+        uiManager.logMessage("ERROR: Only one Ambi source allowed. Source " + currentAmbiIdx + 
+                " is already in Ambi mode.");
+        return; // Exit without changing the mode
+      }
+    }
+    
+    // Update the mode of the specified track source
+    if (idx >= 0 && idx < trackSources.size()) {
+      trackSources.get(idx).mode = newMode;
+      // Notify the main sketch/UI to update visible sliders
+      onSourceModeChange(idx, newMode);
+    }
   }
 }
 
 /**
  * TrackSource class
- * Represents a single track's rectangle and radio buttons.
+ * Represents a single track's rectangle and status display.
  */
 class TrackSource {
   SourceManager parent;
   String name; // Track name
   int index; // Unique index for this track source
   float x, y, width, height; // Rectangle dimensions
-  RadioButton radioButtons; // Radio buttons for source type
   Textfield nameField; // Textfield for track name
-  int mode = 0; // 0 = Mono/Stereo, 1 = Ambi, 2 = Bin
+  int mode = 0; // 0 = Mono/Stereo, 1 = Ambi, 2 = Send
+  
+  // Source type names
+  String[] modeNames = {"Mono/Stereo", "Ambi", "Send"};
+  color[] modeColors = {color(50, 200, 50), color(50, 50, 200), color(200, 50, 50)};
 
   // Constructor
   TrackSource(String name, int index, ControlP5 cp5, SourceManager parent) {
     this.name = name;
     this.index = index;
     this.parent = parent;
-
-    String radioName = "sourceType_" + index;
-    radioButtons = cp5.addRadioButton(radioName)
-                    .setSize(10, 10)
-                    .setColorForeground(color(150))
-                    .setColorActive(color(0, 255, 0))
-                    .setColorLabel(color(255))
-                    .setItemsPerRow(1) // Stack vertically
-                    .setSpacingColumn(5) // Horizontal spacing
-                    .setSpacingRow(2) // Vertical spacing
-                    .addItem("Mono/Stereo_" + index, 0) // Unique item name
-                    .addItem("Ambi_" + index, 1)       // Unique item name
-                    .addItem("Bin_" + index, 2)        // Unique item name
-                    .activate(0); // Default to "Mono/Stereo"
-
-    // Store the final index for use in the anonymous class
-    final int trackIndex = index;
-
-    // Register the main sketch as an event listener
-    radioButtons.plugTo(parent, radioName);
-
-        // Create the textfield for track name
-        nameField = cp5.addTextfield("TrackName_" + index)
-                      .setText(name)
-                      .setPosition(x + 10, y + 35) // Will be updated in updateTrackPositions
-                      .setSize(80, 20)
-                      .onChange(e -> parent.handleRenameTrack(index, nameField.getText()));
-      }
-
-  // Draw the track rectangle
-  void draw() {
-    fill(60, 65, 75);
+    
+    // Create the textfield for track name
+    nameField = cp5.addTextfield("TrackName_" + index)
+                  .setText(name)
+                  .setPosition(x + 10, y + 35) // Will be updated in updateTrackPositions
+                  .setSize(80, 20)
+                  .onChange(e -> parent.handleRenameTrack(index, nameField.getText()));
+  }  // Draw the track rectangle
+  void draw(boolean isSelected) {
+    // Highlight selected source with yellow background
+    if (isSelected) {
+      fill(225, 140, 60);// Yellow highlight for selected track
+    } else {
+      fill(60, 65, 75);   // Regular color for non-selected tracks
+    }
+    
     stroke(100, 110, 130);
     strokeWeight(2);
     rect(x, y, width, height, 5);
 
+    // Draw source type indicator circle
+    float circleX = x + width - 30;
+    float circleY = y + 20;
+    float circleSize = 15;
+    
+    // Draw circle with color based on current mode
+    fill(modeColors[mode]);
+    stroke(255);
+    strokeWeight(1);
+    ellipse(circleX, circleY, circleSize, circleSize);
+    
+    // Draw mode name
+    fill(255);
+    textAlign(RIGHT);
+    textSize(12);
+    text(modeNames[mode], circleX - 10, circleY + 5);
+    textAlign(LEFT);  // Reset text alignment
+    
     // Draw the textfield (ControlP5 handles drawing)
     // Optionally, hide/show based on visibility
     nameField.setVisible(y + height >= parent.container.y && y <= parent.container.y + parent.container.height);

@@ -75,6 +75,42 @@ class OscHelper {
     sendMessage(solo ? 1 : 0);
   }
 
+  // Send a head roll rotation message
+  void sendHeadRoll(float roll) {
+    setAddress("/head/roll");
+    sendMessage(roll);
+  }
+  
+  // Send a head yaw rotation message
+  void sendHeadYaw(float yaw) {
+    setAddress("/head/yaw");
+    sendMessage(yaw);
+  }
+  
+  // Send a head pitch rotation message
+  void sendHeadPitch(float pitch) {
+    setAddress("/head/pitch");
+    sendMessage(pitch);
+  }
+
+  // Send a cube roll rotation message
+  void sendCubeRoll(float roll) {
+    setAddress("/cube/roll");
+    sendMessage(roll);
+  }
+  
+  // Send a cube yaw rotation message
+  void sendCubeYaw(float yaw) {
+    setAddress("/cube/yaw");
+    sendMessage(yaw);
+  }
+  
+  // Send a cube pitch rotation message
+  void sendCubePitch(float pitch) {
+    setAddress("/cube/pitch");
+    sendMessage(pitch);
+  }
+
   // Handle received OSC messages
   void handleOscEvent(OscMessage msg) {
     if (parentCallback != null) {

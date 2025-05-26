@@ -1,7 +1,4 @@
-/**
- * TrackManager class
- * Manages all tracks within the track controls area
- */
+
 class TrackManager {
   ArrayList<Track> tracks;
   Track masterTrack;
@@ -35,18 +32,19 @@ class TrackManager {
       tracks.get(i).setHeight(trackHeight); // Set height for each track
     }
   }
-
-  void draw() {
+  void draw(int selectedSource) {
     if (container == null) return;
 
     drawContainerBackground(container, "Mixer Channels");
 
-    // Draw master track
-    masterTrack.draw();
+    // Draw master track (never selected)
+    masterTrack.draw(false);
 
     // Draw other tracks
-    for (Track track : tracks) {
-      track.draw();
+    for (int i = 0; i < tracks.size(); i++) {
+      // Pass true if this track matches the selected source index
+      boolean isSelected = (i == selectedSource);
+      tracks.get(i).draw(isSelected);
     }
   }
 
@@ -117,7 +115,6 @@ class Track {
   float height = 120;
 
   OscHelper oscHelper; // Reference to the OscHelper instance
-
   Track(int id, String name, float x, float y, OscHelper oscHelper, int index) {
     this.id = id;
     this.name = name;
@@ -152,11 +149,17 @@ class Track {
   void setHeight(float height) {
     this.height = height;
   }
-
-  void draw() {
+  void draw(boolean isSelected) {
     // Draw track background
     noStroke();
-    fill(50, 55, 65);
+    
+    // Highlight the selected track with yellow background
+    if (isSelected) {
+      fill(225, 140, 60); // Yellow for selected track
+    } else {
+      fill(50, 55, 65);   // Regular color for non-selected track
+    }
+    
     rect(x, y, width, height, 5);
 
     // Draw track label

@@ -55,24 +55,33 @@ Track masterTrack; // Declare a master track
 HashMap<String, Consumer<OscMessage>> oscHandlers = new HashMap<>();
 
 void setup() {
-  fullScreen(P3D);
+  size(1280,720,P3D);
 
   // Initialize ControlP5
   cp5 = new ControlP5(this);
 
   // Initialize layout manager
   layoutManager = new LayoutManager(width, height);
-
   // Initialize sound sources and tracks with matching indices
   for (int i = 0; i < NUM_TRACKS; i++) {
     tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper, i));
-    soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
+    SoundSource newSource = new SoundSource(150, random(0, TWO_PI), random(0, PI / 2));
+    newSource.setSourceType(SourceType.MONO_STEREO); // Default all sources to MONO_STEREO
+    soundSources.add(newSource);
   }
 
   // Initialize source manager with the same number of tracks
   sourceManager = new SourceManager(cp5, NUM_TRACKS);
   sourceManager.setContainer(layoutManager.sourceControlsArea);
+  
+  // Synchronize source types between UI and sound sources
+  for (int i = 0; i < NUM_TRACKS; i++) {
+    sourceManager.trackSources.get(i).mode = 0; // Set all to MONO_STEREO (0) initially
+  }
 
+  // Initialize the MIDI Mapping Manager and load the mappings
+  midiManager = new MidiMappingManager();
+  midiManager.loadMappings(midiMappingFile, "Yamaha 02R96-1");
 
   
   // Initialize component managers
@@ -159,9 +168,7 @@ void setup() {
       println("No MIDI devices found. MIDI functionality will be disabled.");
   }
 
-    // Initialize the MIDI Mapping Manager and load the mappings
-  midiManager = new MidiMappingManager();
-  midiManager.loadMappings(midiMappingFile, "Yamaha 02R96-1");
+
   
 }
 void handleOscMessage(OscMessage msg) {
@@ -203,13 +210,109 @@ void handleOscMessage(OscMessage msg) {
   // Print to console and log to UI
   println(logMessage);
   uiManager.logMessage(logMessage);
-  
-  // Match the pattern dynamically
+    // Match the pattern dynamically
   Consumer<OscMessage> handler = findOscHandler(pattern);
   if (handler != null) {
     handler.accept(msg);
+  } else if (pattern.startsWith("/head/")) {
+    // Handle head rotation messages
+    handleHeadRotationMessage(msg);
   } else {
     println("Unhandled OSC message: " + pattern);
+  }
+}
+
+// Handle head rotation messages
+void handleHeadRotationMessage(OscMessage msg) {
+  String pattern = msg.addrPattern();
+  
+  // Check if we have enough arguments
+  if (msg.typetag().length() < 1) {
+    println("Error: Head rotation message missing value");
+    return;
+  }
+  
+  // Extract the rotation value (should be a float)
+  float value = 0;
+  try {
+    if (msg.typetag().charAt(0) == 'f') {
+      value = msg.get(0).floatValue();
+    } else if (msg.typetag().charAt(0) == 'i') {
+      // Convert integer to float if needed
+      value = (float) msg.get(0).intValue();
+    } else {
+      println("Error: Head rotation message has invalid type: " + msg.typetag().charAt(0));
+      return;
+    }
+  } catch (Exception e) {
+    println("Error parsing head rotation value: " + e.getMessage());
+    return;
+  }
+  
+  // Update the appropriate head rotation parameter
+  if (pattern.equals("/head/roll")) {
+    // Map the incoming value (typically 0-1) to an appropriate rotation range (-PI to PI)
+    float mappedValue = map(value, 0, 1, -PI, PI);
+    visualizationManager.centralHead.setRoll(mappedValue);
+    uiManager.logMessage("[Head] Set roll to " + mappedValue);
+  } 
+  else if (pattern.equals("/head/yaw")) {
+    float mappedValue = map(value, 0, 1, -PI, PI);
+    visualizationManager.centralHead.setYaw(mappedValue);
+    uiManager.logMessage("[Head] Set yaw to " + mappedValue);
+  } 
+  else if (pattern.equals("/head/pitch")) {
+    float mappedValue = map(value, 0, 1, -PI, PI);
+    visualizationManager.centralHead.setPitch(mappedValue);
+    uiManager.logMessage("[Head] Set pitch to " + mappedValue);
+  }
+}
+
+// Handle cube rotation messages
+void handleCubeRotationMessage(OscMessage msg) {
+  String pattern = msg.addrPattern();
+  
+  // Check if we have enough arguments
+  if (msg.typetag().length() < 1) {
+    println("Error: Cube rotation message missing value");
+    return;
+  }
+  
+  // Extract the rotation value (should be a float)
+  float value = 0;
+  try {
+    if (msg.typetag().charAt(0) == 'f') {
+      value = msg.get(0).floatValue();
+    } else if (msg.typetag().charAt(0) == 'i') {
+      // Convert integer to float if needed
+      value = (float) msg.get(0).intValue();
+    } else {
+      println("Error: Cube rotation message has invalid type: " + msg.typetag().charAt(0));
+      return;
+    }
+  } catch (Exception e) {
+    println("Error parsing cube rotation value: " + e.getMessage());
+    return;
+  }
+  
+  // Map the incoming value (typically 0-1) to an appropriate rotation range (-PI to PI)
+  float mappedValue = map(value, 0, 1, -PI, PI);
+  
+  // Update the appropriate cube rotation parameter
+  if (pattern.equals("/cube/roll")) {
+    visualizationManager.setCubeRoll(mappedValue);
+    cp5.getController("cubeRoll").setValue(mappedValue);
+    uiManager.logMessage("[Cube] Set roll to " + mappedValue);
+  } 
+  else if (pattern.equals("/cube/yaw")) {
+    visualizationManager.setCubeYaw(mappedValue);
+    cp5.getController("cubeYaw").setValue(mappedValue);
+    uiManager.logMessage("[Cube] Set yaw to " + mappedValue);
+  } 
+  else if (pattern.equals("/cube/pitch")) {
+    visualizationManager.setCubePitch(mappedValue);
+    cp5.getController("cubePitch").setValue(mappedValue);
+    uiManager.logMessage("[Cube] Set pitch to " + mappedValue);
   }
 }
 
@@ -583,11 +686,14 @@ void draw() {
   // Draw layout borders
   layoutManager.drawContainerBorders();
 
-  // Draw source manager
+  // Update the selected source in the source manager
+  sourceManager.selectedSource = selectedSource;
+  
+  // Draw source manager with highlighting for selected source
   sourceManager.draw();
 
-  // Draw track controls (bottom)
-  trackManager.draw();
+  // Draw track controls (bottom) with highlighting for selected source
+  trackManager.draw(selectedSource);
 
   // Draw main visualization (top)
   visualizationManager.draw(soundSources, selectedSource);
@@ -603,16 +709,29 @@ void mouseWheel(MouseEvent event) {
 }
 
 void mousePressed() {
-  sourceManager.mousePressed();
-  trackManager.handleMousePressed(mouseX, mouseY);
+  // Check if mouse is over visualization first
+  visualizationManager.handleMousePressed();
+  
+  // If not dragging visualization, handle other components
+  if (!visualizationManager.isDragging) {
+    sourceManager.mousePressed();
+    trackManager.handleMousePressed(mouseX, mouseY);
+  }
 }
 
 void mouseDragged() {
-  sourceManager.mouseDragged();
-  trackManager.handleMouseDragged(mouseX, mouseY);
+  // First check if visualization is being dragged
+  if (visualizationManager.isDragging) {
+    visualizationManager.handleMouseDragged();
+  } else {
+    // Otherwise handle other components' dragging
+    sourceManager.mouseDragged();
+    trackManager.handleMouseDragged(mouseX, mouseY);
+  }
 }
 
 void mouseReleased() {
+  visualizationManager.handleMouseReleased();
   sourceManager.mouseReleased();
   trackManager.handleMouseReleased();
 }
@@ -629,6 +748,46 @@ void keyPressed() {
   if (key == 'v' || key == 'V') {
     visualizationManager.toggleMode();
   }
+  
+  // Reset camera view with 'r' key
+  if (key == 'r' || key == 'R') {
+    visualizationManager.resetRotation();
+  }
+  // Change source type based on key press (m=Mono/Stereo, a=Ambi, s=Send)
+  if (selectedSource >= 0 && selectedSource < sourceManager.trackSources.size() && 
+      selectedSource < soundSources.size()) {
+      
+    if (key == 'm' || key == 'M') {
+      // Set to Mono/Stereo mode
+      sourceManager.changeSourceMode(selectedSource, 0); 
+      // Only update SoundSource if the UI mode was changed successfully
+      if (sourceManager.trackSources.get(selectedSource).mode == 0) {
+        soundSources.get(selectedSource).setSourceType(SourceType.MONO_STEREO);
+        println("Changed source " + selectedSource + " to Mono/Stereo mode");
+      }
+    } else if (key == 'a' || key == 'A') {      // Try to set to Ambi mode - this will fail if another source is already in Ambi mode
+      int currentAmbiIdx = sourceManager.getAmbiSourceIndex();
+      if (currentAmbiIdx >= 0 && currentAmbiIdx != selectedSource) {
+        // Another source is already in Ambi mode
+        String errorMsg = "Cannot set source " + selectedSource + " to Ambi mode because source " + 
+                currentAmbiIdx + " is already in Ambi mode";
+        println(errorMsg);
+        uiManager.logMessage("ERROR: " + errorMsg);
+      } else {
+        sourceManager.changeSourceMode(selectedSource, 1);
+        if (sourceManager.trackSources.get(selectedSource).mode == 1) {
+          soundSources.get(selectedSource).setSourceType(SourceType.AMBI);
+          println("Changed source " + selectedSource + " to Ambi mode");
+        }
+      }
+    } else if (key == 's' || key == 'S') {
+      // Set to Send mode
+      sourceManager.changeSourceMode(selectedSource, 2);
+      soundSources.get(selectedSource).setSourceType(SourceType.SEND);
+      println("Changed source " + selectedSource + " to Send mode");
+    }
+  }
+  
   // Select sound source using number keys
   if (key >= '1' && key <= '9') {
     int sourceIndex = key - '1';
@@ -652,18 +811,37 @@ void keyPressed() {
 }
 void addSource() {
   int idx = tracks.size();
-  soundSources.add(new SoundSource(150, random(0, TWO_PI), random(0, PI / 2)));
+  SoundSource newSource = new SoundSource(150, random(0, TWO_PI), random(0, PI / 2));
+  newSource.setSourceType(SourceType.MONO_STEREO); // Explicitly set to MONO_STEREO
+  soundSources.add(newSource);
   tracks.add(new Track(idx + 1, "Track " + (idx + 1), 150 + idx * 70, height - 300, oscHelper, idx));
+  
+  // Add track source to the UI
   sourceManager.addTrackSource();
+  
+  // Make sure the track source mode matches the sound source type
+  sourceManager.trackSources.get(idx).mode = 0; // 0 = MONO_STEREO
+  
+  // Update positions in both managers
   trackManager.updateTrackPositions();
   sourceManager.updateTrackPositions();
 }
 
 void removeSource(int idx) {
   if (idx >= 0 && idx < tracks.size()) {
+    // Check if we're removing an Ambi source
+    boolean wasAmbiSource = (sourceManager.trackSources.get(idx).mode == 1);
+    
     soundSources.remove(idx);
     tracks.remove(idx);
     sourceManager.removeTrackSource(idx);
+    
+    // If we removed the Ambi source, log a message
+    if (wasAmbiSource) {
+      println("Ambi source removed. Another source can now be set to Ambi mode.");
+      uiManager.logMessage("Ambi source removed. Another source can now be set to Ambi mode.");
+    }
+    
     // Update indices for all remaining tracks and sources
     for (int i = 0; i < tracks.size(); i++) {
       tracks.get(i).index = i;
@@ -683,8 +861,14 @@ void renameSource(int idx, String newName) {
 }
 
 void onSourceModeChange(int idx, int mode) {
+  // Update UI for the selected source
   if (idx == selectedSource) {
-   // uiManager.setSliderMode(mode);
+    uiManager.setSliderMode(mode);
+  }
+  
+  // Update the source type in the SoundSource object if it exists
+  if (idx >= 0 && idx < soundSources.size()) {
+    soundSources.get(idx).setSourceType(mode);
   }
 }
 
@@ -694,14 +878,3 @@ void selectSource(int idx) {
   uiManager.setSliderMode(mode);
 }
 
-// In your main sketch:
-public void controlEvent(ControlEvent event) {
-    if (event.isGroup()) {
-        String name = event.getGroup().getName();
-        if (name.startsWith("sourceType_")) {
-            int extractedIndex = Integer.parseInt(name.substring(name.lastIndexOf("_") + 1));
-            int mode = (int)event.getGroup().getValue();
-            onSourceModeChange(extractedIndex, mode);
-        }
-    }
-}

@@ -1,19 +1,48 @@
-/**
- * CubeRenderer class
- * Handles drawing the 3D cube frame and coordinate system
- */
+
 class CubeRenderer {
   float boundarySize;
+  
+  // Add rotation parameters
+  float roll = 0;  // Rotation around Z-axis
+  float yaw = 0;   // Rotation around Y-axis
+  float pitch = 0; // Rotation around X-axis
   
   // Constructor
   CubeRenderer(float boundarySize) {
     this.boundarySize = boundarySize;
   }
   
-  // Draw cube frame (now accepts container dimensions)
+  // Methods to set rotation values
+  void setRoll(float roll) {
+    this.roll = roll;
+  }
+  
+  void setYaw(float yaw) {
+    this.yaw = yaw;
+  }
+  
+  void setPitch(float pitch) {
+    this.pitch = pitch;
+  }
+  
+  // Reset all rotation values
+  void resetRotation() {
+    roll = 0;
+    yaw = 0;
+    pitch = 0;
+  }
+    // Draw cube frame (now accepts container dimensions)
   void drawCubeFrame(Rectangle container) {
     // Calculate scale factor based on container dimensions
     float scaleFactor = min(container.width, container.height) / (boundarySize);
+    
+    // Push matrix to isolate the cube's rotation
+    pushMatrix();
+    
+    // Apply the cube's own rotation
+    rotateZ(roll);  // Roll (Z-axis)
+    rotateY(yaw);   // Yaw (Y-axis)
+    rotateX(pitch); // Pitch (X-axis)
     
     // Disable the default drawing of the box
     noFill();
@@ -55,8 +84,7 @@ class CubeRenderer {
     drawGradientEdge(halfSize, -halfSize, -halfSize, halfSize, -halfSize, halfSize, frontColor, backColor);
     drawGradientEdge(halfSize, -halfSize, halfSize, -halfSize, -halfSize, halfSize, backColor, backColor);
     drawGradientEdge(-halfSize, -halfSize, halfSize, -halfSize, -halfSize, -halfSize, backColor, frontColor);
-    
-    // Edges connecting front to back with gradient
+      // Edges connecting front to back with gradient
     for (int i = 0; i <= 1; i++) {
       for (int j = 0; j <= 1; j++) {
         float x = i == 0 ? -halfSize : halfSize;
@@ -66,13 +94,23 @@ class CubeRenderer {
         drawGradientEdge(x, y, -halfSize, x, y, halfSize, frontColor, backColor);
       }
     }
+    
+    // Pop the matrix to restore the previous transformation state
+    popMatrix();
   }
-  
-  // Draw coordinate system (now accepts container dimensions)
+    // Draw coordinate system (now accepts container dimensions)
   void drawCoordinateSystem(Rectangle container) {
     // Calculate scale factor based on container dimensions
     float scaleFactor = min(container.width, container.height) / (boundarySize);
     float axisLength = 100 * scaleFactor;
+    
+    // Push matrix to isolate the coordinate system's rotation
+    pushMatrix();
+    
+    // Apply the cube's own rotation
+    rotateZ(roll);  // Roll (Z-axis)
+    rotateY(yaw);   // Yaw (Y-axis)
+    rotateX(pitch); // Pitch (X-axis)
     
     strokeWeight(1);
     
@@ -97,10 +135,12 @@ class CubeRenderer {
     // Z axis (blue)
     stroke(0, 0, 255);
     line(0, 0, 0, 0, 0, axisLength);
-    pushMatrix();
-    translate(0, 0, axisLength + 10);
+    pushMatrix();    translate(0, 0, axisLength + 10);
     fill(0, 0, 255);
     text("Z", 0, 0);
+    popMatrix();
+    
+    // Pop the matrix to restore the previous transformation state
     popMatrix();
   }
   
