@@ -7,6 +7,9 @@ class UIManager {
   int visibleLogLines = 10; // Number of visible lines in the log window
   int logScrollOffset = 0; // Scroll offset for the log window
   DropdownList midiDeviceDropdown;
+  
+  // Custom slider manager
+  SliderManager sliderManager;
 
   // UI positions relative to container
   float sliderX;
@@ -18,29 +21,24 @@ class UIManager {
     this.cp5 = cp5;
     this.width = width;
     this.height = height;
+    
+    // Initialize slider manager
+    sliderManager = new SliderManager();
   }
-
 
   // Set the container reference and update positions
   void setContainer(Rectangle container) {
     this.container = container;
     updatePositions();
+    
+    // Also set container for slider manager
+    sliderManager.setContainer(container);
   }
-
   // Update positions based on container
   void updatePositions() {
     if (container == null) return;
 
     sliderX = container.x + 20;
-
-    // Update ControlP5 element positions dynamically
-    String[] sliders = { "radius", "azimuth", "zenith" };
-    for (int i = 0; i < sliders.length; i++) {
-      if (cp5.getController(sliders[i]) != null) {
-        cp5.getController(sliders[i])
-           .setPosition(sliderX, container.y + 250 + i * 50);
-      }
-    }
 
     // Update dropdown position
     if (midiDeviceDropdown != null) {
@@ -48,151 +46,153 @@ class UIManager {
         .setPosition(container.x + 20, container.y + 200)
         .setSize((int)(container.width - 40), 150); // Update size dynamically
     }
+    
+    // Update custom slider positions
+    sliderManager.updatePositions();
   }
-
   // Setup control sliders
   void setupControls(float radius, float azimuth, float zenith, float boundarySize, ArrayList<String> availableDevices) {
-  cp5.addSlider("radius")
-     .setPosition(sliderX, container.y + 250)
-     .setSize((int)(container.width - 40), 30) // Cast width to int
-     .setRange(50, boundarySize / 2)
-     .setValue(radius)
-     .setCaptionLabel("Radius")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-       if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-         SoundSource source = soundSources.get(selectedSource);
-         source.radius = event.getController().getValue();
-         source.updatePosition(); // Update the position of the sound source
+    // Setup custom sliders
+    
+    // Radius slider
+    CustomSlider radiusSlider = sliderManager.addSlider("radius", 50, boundarySize / 2, radius, "Radius");
+    radiusSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    radiusSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        if (selectedSource >= 0 && selectedSource < soundSources.size()) {
+          SoundSource source = soundSources.get(selectedSource);
+          source.radius = value;
+          source.updatePosition(); // Update the position of the sound source
 
-         // Send OSC message for radius
-         oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
-       }
-     });
+          // Send OSC message for radius
+          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
+        }
+      }
+    });
+    
+    // Azimuth slider
+    CustomSlider azimuthSlider = sliderManager.addSlider("azimuth", 0, TWO_PI, azimuth, "Azimuth");
+    azimuthSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    azimuthSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        if (selectedSource >= 0 && selectedSource < soundSources.size()) {
+          SoundSource source = soundSources.get(selectedSource);
+          source.azimuth = value;
+          source.updatePosition(); // Update the position of the sound source
 
-  cp5.addSlider("azimuth")
-     .setPosition(sliderX, container.y + 300)
-     .setSize((int)(container.width - 40), 30) // Cast width to int
-     .setRange(0, TWO_PI)
-     .setValue(azimuth)
-     .setCaptionLabel("Azimuth")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-       if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-         SoundSource source = soundSources.get(selectedSource);
-         source.azimuth = event.getController().getValue();
-         source.updatePosition(); // Update the position of the sound source
+          // Send OSC message for azimuth
+          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, 0, TWO_PI, 0, 1));
+        }
+      }
+    });
+    
+    // Zenith slider
+    CustomSlider zenithSlider = sliderManager.addSlider("zenith", 0, PI, zenith, "Zenith");
+    zenithSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    zenithSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        if (selectedSource >= 0 && selectedSource < soundSources.size()) {
+          SoundSource source = soundSources.get(selectedSource);
+          source.zenith = value;
+          source.updatePosition(); // Update the position of the sound source
 
-         // Send OSC message for azimuth
-         oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, 0, TWO_PI, 0, 1));
-       }
-     });
+          // Send OSC message for zenith
+          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, 0, PI, 0, 1));
+        }
+      }
+    });
+    
+    // Roll slider
+    CustomSlider rollSlider = sliderManager.addSlider("roll", -PI, PI, 0, "Roll");
+    rollSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    rollSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        visualizationManager.setCubeRoll(value);
+        
+        // Also apply rotation to all sound sources
+        for(SoundSource source : soundSources) {
+          source.setRoll(value);
+        }
+      }
+    });
+    
+    // Yaw slider
+    CustomSlider yawSlider = sliderManager.addSlider("yaw", -PI, PI, 0, "Yaw");
+    yawSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    yawSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        visualizationManager.setCubeYaw(value);
+        
+        // Also apply rotation to all sound sources
+        for(SoundSource source : soundSources) {
+          source.setYaw(value);
+        }
+      }
+    });
+    
+    // Pitch slider
+    CustomSlider pitchSlider = sliderManager.addSlider("pitch", -PI, PI, 0, "Pitch");
+    pitchSlider.setColors(
+      color(100, 100, 120),  // background
+      color(150, 150, 200),  // foreground
+      color(255, 255, 255),  // active
+      color(255, 255, 200)   // label
+    );
+    pitchSlider.setCallback(new SliderCallback() {
+      void onValueChanged(CustomSlider slider, float value) {
+        visualizationManager.setCubePitch(value);
+        
+        // Also apply rotation to all sound sources
+        for(SoundSource source : soundSources) {
+          source.setPitch(value);
+        }
+      }
+    });
+  
+    // Add dropdown for MIDI device selection (still using ControlP5 for this)
+    midiDeviceDropdown = cp5.addDropdownList("MIDI Device")
+      .setPosition(container.x + 20, container.y + 200)
+      .setSize((int)(container.width - 40), 150)
+      .setBarHeight(30)
+      .setItemHeight(20)
+      .setColorBackground(color(100, 100, 120))
+      .setColorForeground(color(150, 150, 200))
+      .setColorActive(color(255, 255, 255));
 
-  cp5.addSlider("zenith")
-     .setPosition(sliderX, container.y + 350)
-     .setSize((int)(container.width - 40), 30) // Cast width to int
-     .setRange(0, PI)
-     .setValue(zenith)
-     .setCaptionLabel("Zenith")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-       if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-         SoundSource source = soundSources.get(selectedSource);
-         source.zenith = event.getController().getValue();
-         source.updatePosition(); // Update the position of the sound source
+    for (String device : availableDevices) {
+      midiDeviceDropdown.addItem(device, device);
+    }
 
-         // Send OSC message for zenith
-         oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith,0,PI,0,1));
-       }
-     });
-
-  // Add dropdown for MIDI device selection
-  midiDeviceDropdown = cp5.addDropdownList("MIDI Device")
-    .setPosition(container.x + 20, container.y + 200)
-    .setSize((int)(container.width - 40), 150)
-    .setBarHeight(30)
-    .setItemHeight(20)
-    .setColorBackground(color(100, 100, 120))
-    .setColorForeground(color(150, 150, 200))
-    .setColorActive(color(255, 255, 255));
-
-  for (String device : availableDevices) {
-    midiDeviceDropdown.addItem(device, device);
-  }
-
-  midiDeviceDropdown.onChange(event -> {
-    String selectedDevice = event.getController().getLabel();
-    println("Selected MIDI Device: " + selectedDevice);
-    midiManager.loadMappings("data/midi_mapping.json", selectedDevice);
-  });
-
-  // Add sliders for roll, yaw, and pitch
-  cp5.addSlider("roll")
-     .setPosition(sliderX, container.y + 400)
-     .setSize((int)(container.width - 40), 30)
-     .setRange(-PI, PI)
-     .setValue(0)
-     .setCaptionLabel("Roll")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-         float rollValue = event.getController().getValue();
-         visualizationManager.setCubeRoll(rollValue);
-         
-         // Also apply rotation to all sound sources
-         for(SoundSource source : soundSources) {
-           source.setRoll(rollValue);
-         }
-     });
-  cp5.addSlider("yaw")
-     .setPosition(sliderX, container.y + 450)
-     .setSize((int)(container.width - 40), 30)
-     .setRange(-PI, PI)
-     .setValue(0)
-     .setCaptionLabel("Yaw")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-       float yawValue = event.getController().getValue();
-       visualizationManager.setCubeYaw(yawValue);
-       
-       // Also apply rotation to all sound sources
-       for(SoundSource source : soundSources) {
-         source.setYaw(yawValue);
-       }
-     });
-  cp5.addSlider("pitch")
-     .setPosition(sliderX, container.y + 500)
-     .setSize((int)(container.width - 40), 30)
-     .setRange(-PI, PI)
-     .setValue(0)
-     .setCaptionLabel("Pitch")
-     .setColorCaptionLabel(color(255, 255, 200))
-     .setColorBackground(color(100, 100, 120))
-     .setColorForeground(color(150, 150, 200))
-     .setColorActive(color(255, 255, 255))
-     .onChange(event -> {
-       float pitchValue = event.getController().getValue();
-       visualizationManager.setCubePitch(pitchValue);
-       
-       // Also apply rotation to all sound sources
-       for(SoundSource source : soundSources) {
-         source.setPitch(pitchValue);
-       }
-     });
+    midiDeviceDropdown.onChange(event -> {
+      String selectedDevice = event.getController().getLabel();
+      println("Selected MIDI Device: " + selectedDevice);
+      midiManager.loadMappings("data/midi_mapping.json", selectedDevice);
+    });
 }
 
   // Add a message to the log
@@ -202,7 +202,6 @@ class UIManager {
       messageLog.remove(messageLog.size() - 1); // Remove the oldest message if log exceeds max size
     }
   }
-
   // Draw UI panel
   void draw(int numSources, int selectedSource) {
     if (container == null) return;
@@ -216,6 +215,9 @@ class UIManager {
     fill(40, 45, 55, 200);
     noStroke();
     rect(container.x, container.y, container.width, container.height, 10);
+    
+    // Draw custom sliders
+    sliderManager.draw();
 
     // Draw title
     fill(255);
@@ -315,24 +317,83 @@ class UIManager {
   void scrollLog(int direction) {
     logScrollOffset = constrain(logScrollOffset + direction, 0, max(0, messageLog.size() - visibleLogLines));
   }
-
   void setSliderMode(int mode) {
     sliderMode = mode;
     updateSliderVisibility();
   }
   
   void updateSliderVisibility() {
-    // Stereo/Mono: show radius, azimuth, zenith; hide roll, yaw, pitch
-    boolean showStereo = (sliderMode == 0);
-    boolean showAmbi = (sliderMode == 1);
-    
-    if (cp5.getController("radius") != null) cp5.getController("radius").setVisible(showStereo);
-    if (cp5.getController("azimuth") != null) cp5.getController("azimuth").setVisible(showStereo);
-    if (cp5.getController("zenith") != null) cp5.getController("zenith").setVisible(showStereo);
+    // Use the slider manager to set visibility
+    sliderManager.setSliderMode(sliderMode);
+  }
 
-    if (cp5.getController("roll") != null) cp5.getController("roll").setVisible(showAmbi);
-    if (cp5.getController("yaw") != null) cp5.getController("yaw").setVisible(showAmbi);
-    if (cp5.getController("pitch") != null) cp5.getController("pitch").setVisible(showAmbi);
+  // Add mouse handling for custom sliders
+  void mousePressed() {
+    sliderManager.mousePressed();
+  }
+
+  void mouseDragged() {
+    sliderManager.mouseDragged();
+  }
+
+  void mouseReleased() {
+    sliderManager.mouseReleased();
+  }
+
+  // Update slider values based on the selected source
+  void updateSliders(int selectedSourceIndex) {
+    if (selectedSourceIndex >= 0 && selectedSourceIndex < soundSources.size()) {
+      SoundSource source = soundSources.get(selectedSourceIndex);
+      
+      // Update position sliders
+      CustomSlider radiusSlider = sliderManager.getSlider("radius");
+      if (radiusSlider != null) {
+        radiusSlider.setValue(source.radius);
+      }
+      
+      CustomSlider azimuthSlider = sliderManager.getSlider("azimuth");
+      if (azimuthSlider != null) {
+        azimuthSlider.setValue(source.azimuth);
+      }
+      
+      CustomSlider zenithSlider = sliderManager.getSlider("zenith");
+      if (zenithSlider != null) {
+        zenithSlider.setValue(source.zenith);
+      }
+      
+      // Update rotation sliders
+      CustomSlider rollSlider = sliderManager.getSlider("roll");
+      if (rollSlider != null) {
+        rollSlider.setValue(source.roll);
+      }
+      
+      CustomSlider yawSlider = sliderManager.getSlider("yaw");
+      if (yawSlider != null) {
+        yawSlider.setValue(source.yaw);
+      }
+      
+      CustomSlider pitchSlider = sliderManager.getSlider("pitch");
+      if (pitchSlider != null) {
+        pitchSlider.setValue(source.pitch);
+      }
+    }
+  }
+  
+  // Update a specific slider value
+  void updateSliderValue(String sliderName, float value) {
+    CustomSlider slider = sliderManager.getSlider(sliderName);
+    if (slider != null) {
+      slider.setValue(value);
+    }
+  }
+
+  // Update position sliders (radius, azimuth, zenith) for a source
+  void updatePositionSliders(SoundSource source) {
+    if (source != null) {
+      updateSliderValue("radius", source.radius);
+      updateSliderValue("azimuth", source.azimuth);
+      updateSliderValue("zenith", source.zenith);
+    }
   }
 }
 

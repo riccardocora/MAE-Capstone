@@ -71,7 +71,7 @@ void setup() {
   }
 
   // Initialize source manager with the same number of tracks
-  sourceManager = new SourceManager(cp5, NUM_TRACKS);
+  sourceManager = new SourceManager( NUM_TRACKS);
   sourceManager.setContainer(layoutManager.sourceControlsArea);
   
   // Synchronize source types between UI and sound sources
@@ -297,21 +297,20 @@ void handleCubeRotationMessage(OscMessage msg) {
   
   // Map the incoming value (typically 0-1) to an appropriate rotation range (-PI to PI)
   float mappedValue = map(value, 0, 1, -PI, PI);
-  
-  // Update the appropriate cube rotation parameter
+    // Update the appropriate cube rotation parameter
   if (pattern.equals("/cube/roll")) {
     visualizationManager.setCubeRoll(mappedValue);
-    cp5.getController("cubeRoll").setValue(mappedValue);
+    uiManager.updateSliderValue("roll", mappedValue);
     uiManager.logMessage("[Cube] Set roll to " + mappedValue);
   } 
   else if (pattern.equals("/cube/yaw")) {
     visualizationManager.setCubeYaw(mappedValue);
-    cp5.getController("cubeYaw").setValue(mappedValue);
+    uiManager.updateSliderValue("yaw", mappedValue);
     uiManager.logMessage("[Cube] Set yaw to " + mappedValue);
   } 
   else if (pattern.equals("/cube/pitch")) {
     visualizationManager.setCubePitch(mappedValue);
-    cp5.getController("cubePitch").setValue(mappedValue);
+    uiManager.updateSliderValue("pitch", mappedValue);
     uiManager.logMessage("[Cube] Set pitch to " + mappedValue);
   }
 }
@@ -330,25 +329,24 @@ public void controllerChange(int channel, int number, int value) {
       case "updateSource":
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
           SoundSource source = soundSources.get(selectedSource);
-          
-          if (mapping.parameter.equals("radius")) {
+            if (mapping.parameter.equals("radius")) {
             float radius = map(normalizedValue, 0, 1, 50, 600);
             source.radius = radius;
             source.updatePosition();
-            cp5.getController("radius").setValue(source.radius);
+            uiManager.updateSliderValue("radius", source.radius);
             oscHelper.sendOscVolume(selectedSource + 1, normalizedValue);
           } 
           else if (mapping.parameter.equals("azimuth")) {
             float azimuth = map(normalizedValue, 0, 1, 0, TWO_PI);
             source.azimuth = azimuth;
             source.updatePosition();
-            cp5.getController("azimuth").setValue(source.azimuth);
+            uiManager.updateSliderValue("azimuth", source.azimuth);
           } 
           else if (mapping.parameter.equals("zenith")) {
             float zenith = map(normalizedValue, 0, 1, 0, PI);
             source.zenith = zenith;
             source.updatePosition();
-            cp5.getController("zenith").setValue(source.zenith);
+            uiManager.updateSliderValue("zenith", source.zenith);
           }
         }
         break;
@@ -358,12 +356,8 @@ public void controllerChange(int channel, int number, int value) {
         if (mapping instanceof CCMapping) {
           CCMapping ccMapping = (CCMapping) mapping;
           int sourceIndex = ccMapping.getTrackNumber(number);
-          if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {
-            selectedSource = sourceIndex;
-            SoundSource source = soundSources.get(selectedSource);
-            cp5.getController("radius").setValue(source.radius);
-            cp5.getController("azimuth").setValue(source.azimuth);
-            cp5.getController("zenith").setValue(source.zenith);
+          if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {            selectedSource = sourceIndex;
+            updateUIControls(soundSources.get(selectedSource));
             println("Selected source: " + selectedSource);
           }
         }
@@ -420,7 +414,7 @@ public void controllerChange(int channel, int number, int value) {
               source.zenith = zenith;
               source.updatePosition();
               if (trackNum == selectedSource) {
-                cp5.getController("zenith").setValue(source.zenith);
+                uiManager.updateSliderValue("zenith", source.zenith);
               }
             }
             oscHelper.sendOscPan(trackNum + 1, zenith);
@@ -649,14 +643,10 @@ public void noteOn(int channel, int note, int velocity) {
   // Log the incoming MIDI note message
   println("[MIDI NOTE] Channel: " + channel + ", Note: " + note + ", Velocity: " + velocity);
   uiManager.logMessage("[MIDI NOTE] Ch: " + channel + ", Note: " + note + ", Vel: " + velocity);
-
   int sourceIndex = note - 36; // Assuming note 36 corresponds to source 0
   if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {
     selectedSource = sourceIndex;
-    SoundSource source = soundSources.get(selectedSource);
-    cp5.getController("radius").setValue(source.radius);
-    cp5.getController("azimuth").setValue(source.azimuth);
-    cp5.getController("zenith").setValue(source.zenith);
+    uiManager.updateSliders(selectedSource);
   }
 }
 
@@ -716,6 +706,7 @@ void mousePressed() {
   if (!visualizationManager.isDragging) {
     sourceManager.mousePressed();
     trackManager.handleMousePressed(mouseX, mouseY);
+    uiManager.mousePressed(); // Handle custom sliders
   }
 }
 
@@ -727,6 +718,7 @@ void mouseDragged() {
     // Otherwise handle other components' dragging
     sourceManager.mouseDragged();
     trackManager.handleMouseDragged(mouseX, mouseY);
+    uiManager.mouseDragged(); // Handle custom sliders
   }
 }
 
@@ -734,6 +726,7 @@ void mouseReleased() {
   visualizationManager.handleMouseReleased();
   sourceManager.mouseReleased();
   trackManager.handleMouseReleased();
+  uiManager.mouseReleased(); // Handle custom sliders
 }
 // Window resize handling
 void windowResized() {
@@ -856,7 +849,7 @@ void renameSource(int idx, String newName) {
   if (idx >= 0 && idx < tracks.size()) {
     tracks.get(idx).name = newName;
     sourceManager.trackSources.get(idx).name = newName;
-    sourceManager.trackSources.get(idx).nameField.setText(newName);
+    //sourceManager.trackSources.get(idx).nameField.setText(newName);
   }
 }
 
@@ -876,5 +869,20 @@ void selectSource(int idx) {
   selectedSource = idx;
   int mode = sourceManager.trackSources.get(idx).mode;
   uiManager.setSliderMode(mode);
+  uiManager.updateSliders(selectedSource);
+}
+
+// Helper function to update UI controls with source values
+void updateUIControls(SoundSource source) {
+  // Use the UIManager to update all sliders
+  uiManager.updateSliders(selectedSource);
+}
+
+// Helper function to update UI position sliders for a specific source
+void updateSourceUI(int sourceIndex) {
+  if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {
+    SoundSource source = soundSources.get(sourceIndex);
+    uiManager.updatePositionSliders(source);
+  }
 }
 

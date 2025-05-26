@@ -6,8 +6,6 @@
 class SourceManager {
   Rectangle container; // Reference to the sourceControlsArea
   ArrayList<TrackSource> trackSources; // List of track sources
-  ControlP5 cp5; // ControlP5 instance for UI elements
-  Button addSourceButton; // Button to add new track source
   int selectedSource = 0; // Currently selected source index
   
   // Scrollbar properties
@@ -16,81 +14,98 @@ class SourceManager {
   float contentHeight = 0; // Total height of all content
   float visibleHeight = 0; // Visible height of the container
   
-  // Constants
-  float TRACK_HEIGHT = 70; // Height of each track rectangle
-  float TRACK_SPACING = 10; // Spacing between rectangles
-  float SCROLLBAR_WIDTH = 15; // Width of scrollbar
+// UI constants
+  final int HEADER_HEIGHT = 30;
+  final int ENTRY_HEIGHT = 80;
+  final int ENTRY_PADDING = 5;
+  final int ADD_BUTTON_SIZE = 24;
+  final color BG_COLOR = color(50, 55, 65);
+  final color HEADER_COLOR = color(60, 65, 75);
+  final color ENTRY_COLOR = color(40, 45, 55);
+  final color TEXT_COLOR = color(220, 220, 220);
+  final color BUTTON_COLOR = color(70, 100, 150);
+  final color HOVER_COLOR = color(80, 120, 180);
+
+  // Hover states
+  boolean addButtonHover = false;
   
   // Constructor
-  SourceManager(ControlP5 cp5, int numTracks) {
-    this.cp5 = cp5;
+  SourceManager(int numTracks) {
     trackSources = new ArrayList<TrackSource>();
 
     // Initialize track sources
     for (int i = 0; i < numTracks; i++) {
-      trackSources.add(new TrackSource("Track " + (i + 1), i, cp5, this));
+      trackSources.add(new TrackSource("Track " + (i + 1), i, this));
     }
-
-    // Add button (position will be set in setContainer)
-    addSourceButton = cp5.addButton("Add Source")
-      .setLabel("Add Source")
-      .onClick(e -> addSourceCallback());
+    // Initialize with default values, will be properly set in setContainer
+    // Initialize scrollbar with default values (will be properly set in setContainer)
+    this.scrollbar = new Scrollbar(0, 0, 10, 100, 20);
+   
   }
 
   // Set the container reference and initialize scrollbar
   void setContainer(Rectangle container) {
     this.container = container;
-    visibleHeight = container.height;
-
-    // Update or recreate scrollbar with new height
-    if (scrollbar == null) {
-      scrollbar = new Scrollbar(
-        (int)(container.x + container.width - SCROLLBAR_WIDTH), 
-        (int)container.y, 
-        (int)SCROLLBAR_WIDTH, 
-        (int)container.height, 
-        20 // Initial slider size, will be adjusted later
-      );
-    } else {
-      scrollbar.x = (int)(container.x + container.width - SCROLLBAR_WIDTH);
-      scrollbar.y = (int)container.y;
-      scrollbar.width = (int)SCROLLBAR_WIDTH;
-      scrollbar.height = (int)container.height;
-    }
-
     updateTrackPositions();
-    updateScrollbar();
-
-    // Place the button at the bottom of the visible area
-    if (addSourceButton != null && container != null) {
-      addSourceButton.setPosition(container.x + 20, container.y + container.height - 50)
-                     .setSize((int)container.width - 40 - (int)SCROLLBAR_WIDTH, 30);
-    }
-  }
-  
-  // Update scrollbar properties based on content
-  void updateScrollbar() {
-    if (container == null) return;
+    
+    // Configure scrollbar
+    int scrollHeight = (int)(container.height - HEADER_HEIGHT);
+    scrollbar.setDimensions(
+      (int)(container.x + container.width - 15), 
+      (int)(container.y + HEADER_HEIGHT), 
+      10, 
+      scrollHeight
+    );
     
     // Calculate total content height
-    contentHeight = trackSources.size() * (TRACK_HEIGHT + TRACK_SPACING) + TRACK_SPACING + 50; // +50 for button area
+    int contentHeight = trackSources.size() * (ENTRY_HEIGHT + ENTRY_PADDING);
+    scrollbar.setContentHeight(contentHeight);
+    scrollbar.setViewportHeight(scrollHeight);
+  }
+  
+  // void updateEntryPositions() {
+  //   if (container == null) return;
     
-    // Only show scrollbar if content exceeds visible area
-    boolean needsScrollbar = contentHeight > visibleHeight;
+  //   // Clear previous entries
+  //   sourceEntries.clear();
     
-    if (needsScrollbar) {
-      // Calculate thumb size relative to content
-      float thumbRatio = min(1.0, visibleHeight / contentHeight);
-      float thumbSize = max(20, visibleHeight * thumbRatio);
+  // // Create entry views for each source
+  //   for (int i = 0; i < mixerModel.soundSources.size(); i++) {
+  //     SoundSourceModel source = mixerModel.soundSources.get(i);
+  //     TrackModel track = mixerModel.tracks.get(i);
       
-      scrollbar.setThumbSize((int)thumbSize);
-      scrollbar.setRange(0, contentHeight - visibleHeight);
+  //     // Create entry view
+  //     SourceEntryView entryView = new SourceEntryView(source, track, eventManager);
+  //     entryView.setParentManager(this); // Set parent reference
+  //     sourceEntries.add(entryView);
+  //   }
+    
+  //   // Position entry views
+  //   updateScrollPositions();
+  // }
+  // Update scrollbar properties based on content
+  void updateScrollbar() {
+    // if (container == null) return;
+    
+    // // Calculate total content height
+    // contentHeight = trackSources.size() * (ENTRY_HEIGHT + TRACK_SPACING) + TRACK_SPACING + 50; // +50 for button area
+    
+    // // Only show scrollbar if content exceeds visible area
+    // boolean needsScrollbar = contentHeight > visibleHeight;
+    
+    // if (needsScrollbar) {
+    //   // Calculate thumb size relative to content
+    //   float thumbRatio = min(1.0, visibleHeight / contentHeight);
+    //   float thumbSize = max(20, visibleHeight * thumbRatio);
       
-      // Ensure scroll position is within valid range
-      scrollY = constrain(scrollY, 0, contentHeight - visibleHeight);
-    } else {
-      scrollY = 0;
-    }
+    //   scrollbar.setThumbSize((int)thumbSize);
+    //   scrollbar.setRange(0, contentHeight - visibleHeight);
+      
+    //   // Ensure scroll position is within valid range
+    //   scrollY = constrain(scrollY, 0, contentHeight - visibleHeight);
+    // } else {
+    //   scrollY = 0;
+    // }
   }
 
   // Callback for the add source button
@@ -101,7 +116,7 @@ class SourceManager {
   // Add a new track source
   void addTrackSource() {
     int idx = trackSources.size();
-    trackSources.add(new TrackSource("Track " + (idx + 1), idx, cp5, this));
+    trackSources.add(new TrackSource("Track " + (idx + 1), idx, this));
     updateTrackPositions();
     updateScrollbar();
   }
@@ -116,7 +131,7 @@ class SourceManager {
       for (int i = idx; i < trackSources.size(); i++) {
         trackSources.get(i).index = i;
         trackSources.get(i).name = "Track " + (i + 1);
-        trackSources.get(i).nameField.setText(trackSources.get(i).name);
+        //trackSources.get(i).nameField.setText(trackSources.get(i).name);
       }
       updateTrackPositions();
       updateScrollbar();
@@ -125,38 +140,42 @@ class SourceManager {
   // Update positions of track rectangles
   void updateTrackPositions() {
     if (container == null) return;
-
-    float yOffset = container.y + TRACK_SPACING - scrollY; // Apply scroll offset
-
+    
+    // Calculate visible area
+    int visibleHeight = (int)container.height - HEADER_HEIGHT;
+    
+    // Update scrollbar max if needed
+    int contentHeight = trackSources.size() * (ENTRY_HEIGHT + ENTRY_PADDING);
+    scrollbar.setContentHeight(contentHeight);
+    
+    // Calculate scroll offset
+    float scrollOffset = scrollbar.getScrollPosition();
     for (int i = 0; i < trackSources.size(); i++) {
       TrackSource trackSource = trackSources.get(i);
 
-      // Set rectangle position
-      trackSource.x = container.x + 10;
-      trackSource.y = yOffset;
-      trackSource.width = container.width - 20 - SCROLLBAR_WIDTH;
-      trackSource.height = TRACK_HEIGHT;
-
-      // Update the position of the text field
-      trackSource.nameField.setPosition(trackSource.x + 10, trackSource.y + 35);
-
-      yOffset += TRACK_HEIGHT + TRACK_SPACING;
+      float entryY = container.y + HEADER_HEIGHT + i * (ENTRY_HEIGHT + ENTRY_PADDING) - scrollOffset;
+        // Only set position for visible entries
+      if (entryY + ENTRY_HEIGHT > container.y + HEADER_HEIGHT && 
+          entryY < container.y + container.height) {    
+        // Set rectangle position
+        trackSource.x = container.x + ENTRY_PADDING;
+        trackSource.y = entryY;
+        trackSource.width = container.width - 2 * ENTRY_PADDING - 15;
+        trackSource.height = ENTRY_HEIGHT;
+      }
     }
 
-    // Move the button - keep it fixed at the bottom of the container
-    if (addSourceButton != null && container != null) {
-      addSourceButton.setPosition(container.x + 20, container.y + container.height - 50)
-                     .setSize((int)container.width - 40 - (int)SCROLLBAR_WIDTH, 30);
-    }
+
   }
   
   // Handle scrolling
   void mouseWheel(MouseEvent event) {
-    if (isMouseOverContainer()) {
-      // Adjust scroll position based on wheel delta
-      float delta = event.getCount() * 15; // Adjust sensitivity as needed
-      scrollY += delta;
-      scrollY = constrain(scrollY, 0, max(0, contentHeight - visibleHeight));
+        if (container == null) return;
+    
+    // Check if mouse is over the container
+    if (mouseX > container.x && mouseX < container.x + container.width &&
+        mouseY > container.y && mouseY < container.y + container.height) {
+      scrollbar.handleMouseWheel(event);
       updateTrackPositions();
     }
   }
@@ -169,64 +188,70 @@ class SourceManager {
 
   // Draw the source controls area
   void draw() {
-    if (container == null) return; // Ensure container is valid
-
-    // Draw the background of the source controls area (fills the whole container)
-    fill(40, 45, 55, 200);
+    
+    // Draw background
     noStroke();
+    fill(BG_COLOR);
     rect(container.x, container.y, container.width, container.height, 10);
-
-    // Save current drawing state
+    
+    // Draw header
+    fill(HEADER_COLOR);
+    rect(container.x, container.y, container.width, HEADER_HEIGHT);
+    
+    // Draw title
+    fill(TEXT_COLOR);
+    textAlign(LEFT, CENTER);
+    textSize(16);
+    text("Source Manager", container.x + 10, container.y + HEADER_HEIGHT/2);
+    
+    // Draw add button
+    color buttonColor = addButtonHover ? HOVER_COLOR : BUTTON_COLOR;
+    fill(buttonColor);
+    rect(container.x + container.width - ADD_BUTTON_SIZE - 10, 
+         container.y + (HEADER_HEIGHT - ADD_BUTTON_SIZE)/2, 
+         ADD_BUTTON_SIZE, ADD_BUTTON_SIZE, 3);
+         
+    // Add + symbol
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(18);
+    text("+", container.x + container.width - ADD_BUTTON_SIZE/2 - 10, 
+         container.y + HEADER_HEIGHT/2 - 1);
+    
+    // Draw scrollbar
+    scrollbar.draw();
+    
+    // Draw source entries
     pushMatrix();
-
-    // Create a clipping region for the container (for tracks only)
-    clip((int)container.x, (int)container.y, (int)container.width, (int)container.height);    // Draw each track source rectangle
+    clip(container.x, container.y + HEADER_HEIGHT, 
+         container.width, container.height - HEADER_HEIGHT);    // Draw each track source rectangle
     for (TrackSource trackSource : trackSources) {
       // Only draw if within visible area (with some margin)
-      if (trackSource.y + trackSource.height >= container.y - TRACK_HEIGHT && 
-          trackSource.y <= container.y + container.height + TRACK_HEIGHT) {
+      if (trackSource.y + trackSource.height > container.y + HEADER_HEIGHT && 
+          trackSource.y < container.y + container.height) {
         // Check if this is the selected source
         boolean isSelected = (trackSource.index == selectedSource);
         trackSource.draw(isSelected);
       }
       
-      // Update visibility of text field based on visibility
-      boolean isVisible = trackSource.y + trackSource.height >= container.y && 
-                         trackSource.y <= container.y + container.height;
-      trackSource.nameField.setVisible(isVisible);
     }
 
-    // Reset the clipping region
-    noClip();
-
-    // Draw the scrollbar
-    scrollbar.update();
-    scrollbar.display();
-
-    // Update scroll position based on scrollbar
-    float newScrollY = scrollbar.getPos();
-    if (newScrollY != scrollY) {
-      scrollY = newScrollY;
-      updateTrackPositions();
-    }
-
-    // Restore previous drawing state
+        
     popMatrix();
-
-    // Button is drawn by ControlP5
+    noClip();
   }
   
   // Handle mouse events for scrollbar
   void mousePressed() {
-    scrollbar.mousePressed();
+    scrollbar.handleMousePressed();
   }
   
   void mouseDragged() {
-    scrollbar.mouseDragged();
+    scrollbar.handleMouseDragged();
   }
   
   void mouseReleased() {
-    scrollbar.mouseReleased();
+    scrollbar.handleMouseReleased();
   }
 
   void handleRenameTrack(int idx, String newName) {
@@ -237,7 +262,7 @@ class SourceManager {
   void renameTrack(int idx, String newName) {
     if (idx >= 0 && idx < trackSources.size()) {
       trackSources.get(idx).name = newName;
-      trackSources.get(idx).nameField.setText(newName);
+      //trackSources.get(idx).nameField.setText(newName);
       // Also update the corresponding Track in TrackManager
       if (idx < trackManager.tracks.size()) {
         trackManager.tracks.get(idx).name = newName;
@@ -296,41 +321,83 @@ class TrackSource {
   String name; // Track name
   int index; // Unique index for this track source
   float x, y, width, height; // Rectangle dimensions
-  Textfield nameField; // Textfield for track name
   int mode = 0; // 0 = Mono/Stereo, 1 = Ambi, 2 = Send
   
   // Source type names
   String[] modeNames = {"Mono/Stereo", "Ambi", "Send"};
   color[] modeColors = {color(50, 200, 50), color(50, 50, 200), color(200, 50, 50)};
 
+  // Button states
+  boolean removeButtonHover = false;
+  boolean editButtonHover = false;
+  boolean isEditing = false;
+  
+  final color ENTRY_BG = color(40, 45, 55);
+  final color BUTTON_COLOR = color(70, 100, 150);
+  final color HOVER_COLOR = color(80, 120, 180);
+  final color REMOVE_COLOR = color(200, 60, 60);
+  final color REMOVE_HOVER = color(220, 80, 80);
+
   // Constructor
-  TrackSource(String name, int index, ControlP5 cp5, SourceManager parent) {
+  TrackSource(String name, int index, SourceManager parent) {
     this.name = name;
     this.index = index;
     this.parent = parent;
     
-    // Create the textfield for track name
-    nameField = cp5.addTextfield("TrackName_" + index)
-                  .setText(name)
-                  .setPosition(x + 10, y + 35) // Will be updated in updateTrackPositions
-                  .setSize(80, 20)
-                  .onChange(e -> parent.handleRenameTrack(index, nameField.getText()));
+    // // Create the textfield for track name
+    // nameField = cp5.addTextfield("TrackName_" + index)
+    //               .setText(name)
+    //               .setPosition(x + 10, y + 35) // Will be updated in updateTrackPositions
+    //               .setSize(80, 20)
+    //               .onChange(e -> parent.handleRenameTrack(index, nameField.getText()));
   }  // Draw the track rectangle
   void draw(boolean isSelected) {
-    // Highlight selected source with yellow background
+
+
+
+    // Draw background
+    noStroke();
+      // Highlight selected source with yellow background
     if (isSelected) {
       fill(225, 140, 60);// Yellow highlight for selected track
     } else {
-      fill(60, 65, 75);   // Regular color for non-selected tracks
+      fill(ENTRY_BG);  // Regular color for non-selected tracks
     }
+    
+    
     
     stroke(100, 110, 130);
     strokeWeight(2);
     rect(x, y, width, height, 5);
+    
+  
+    
+    // Draw custom name text field
+    fill(30, 35, 45);
+    rect(x + 10, y + 8, width - 80, 20, 3);
+    
+    fill(255);
+    textAlign(LEFT, CENTER);
+    textSize(12);
+    text(name, x + 15, y + 18);
+    
+    // Draw remove button
+    float buttonX = x + width - 25;
+    float buttonY = y + 8;
+    float buttonSize = 20;
+    
+    fill(removeButtonHover ? REMOVE_HOVER : REMOVE_COLOR);
+    rect(buttonX, buttonY, buttonSize, buttonSize, 3);
+    
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(14);
+    text("×", buttonX + buttonSize/2, buttonY + buttonSize/2 - 1);
+    
 
     // Draw source type indicator circle
-    float circleX = x + width - 30;
-    float circleY = y + 20;
+    float circleX = x + 20;
+    float circleY = y + height - 20;
     float circleSize = 15;
     
     // Draw circle with color based on current mode
@@ -341,14 +408,63 @@ class TrackSource {
     
     // Draw mode name
     fill(255);
-    textAlign(RIGHT);
+    textAlign(LEFT);
     textSize(12);
-    text(modeNames[mode], circleX - 10, circleY + 5);
-    textAlign(LEFT);  // Reset text alignment
+    text(modeNames[mode], circleX + 15, circleY + 5);
+  }
+
+
+
+  
+  boolean handleMousePressed(float mx, float my) {
+    // Check if click is within entry bounds
+    if (mx < x || mx > x + width || my < y || my > y + height) {
+      return false;
+    }
     
-    // Draw the textfield (ControlP5 handles drawing)
-    // Optionally, hide/show based on visibility
-    nameField.setVisible(y + height >= parent.container.y && y <= parent.container.y + parent.container.height);
+    // Check if the mouse is over the remove button
+    float buttonX = x + width - 25;
+    float buttonY = y + 8;
+    float buttonSize = 20;
+    
+    if (mx > buttonX && mx < buttonX + buttonSize &&
+        my > buttonY && my < buttonY + buttonSize) {
+      // Remove this source
+      
+     
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
+  void handleMouseDragged(float mx, float my) {
+    // Nothing to drag
+  }
+  
+  void handleMouseReleased() {
+    // Nothing to release
+  }
+  
+  void handleMouseMoved(float mx, float my) {
+    // Check if the mouse is over the remove button
+    float buttonX = x + width - 25;
+    float buttonY = y + 8;
+    float buttonSize = 20;
+    
+    removeButtonHover = (mx > buttonX && mx < buttonX + buttonSize &&
+                          my > buttonY && my < buttonY + buttonSize);
+  }
+    
+  void setPosition(float x, float y) {
+    this.x = x;
+    this.y = y;
+  }
+
+   void setDimensions(float width, float height) {
+    this.width = width;
+    this.height = height;
   }
 }
 
@@ -357,103 +473,154 @@ class TrackSource {
  * A simple vertical scrollbar for scrolling content
  */
 class Scrollbar {
-  int x, y;               // Position
-  int width, height;      // Dimensions
-  int thumbSize;          // Size of thumb
-  float pos;              // Current position (0 to max range)
-  float posMin, posMax;   // Range
-  boolean over;           // Is the mouse over the scrollbar?
-  boolean locked;         // Is the scrollbar thumb being dragged?
-  float ratio;            // Ratio of visible area to total content
-
+  // Position and dimensions
+  int x, y, width, height;
+  
+  // Scrollbar properties
+  float valueMin = 0;     // Minimum value
+  float valueMax = 100;   // Maximum value 
+  float valueRange = 100; // Range (max - min)
+  float value = 0;        // Current value
+  
+  // Thumb properties
+  int thumbSize = 20;     // Size of the scrollbar thumb
+  boolean isDragging = false;
+  
+  // Content properties for scroll area
+  float contentHeight = 0;   // Total content height
+  float viewportHeight = 0;  // Visible viewport height
+  
+  // Constructor
   Scrollbar(int x, int y, int width, int height, int thumbSize) {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
     this.thumbSize = thumbSize;
-    posMin = 0;
-    posMax = 0;  // Will be set by setRange()
-    pos = 0;
-    over = false;
-    locked = false;
+    this.valueRange = valueMax - valueMin;
   }
-
-  // Set the size of the thumb
-  void setThumbSize(int size) {
-    thumbSize = constrain(size, 20, height);
+  
+  // Set new dimensions
+  void setDimensions(int x, int y, int width, int height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
   }
-
-  // Set the range of the scrollbar
-  void setRange(float min, float max) {
-    posMin = min;
-    posMax = max;
-    pos = constrain(pos, posMin, posMax);
+  
+  // Set content height (the total scrollable height)
+  void setContentHeight(float height) {
+    contentHeight = max(0, height);
+    updateScrollRange();
   }
-
-  void update() {
-    if (posMax == 0) return; // Skip if no scrolling needed
-    
-    // Check if mouse is over thumb
-    int thumbY = int(map(pos, posMin, posMax, y, y + height - thumbSize));
-    over = overRect(x, thumbY, width, thumbSize);
-    
-    if (locked) {
-      // Update position when dragging
-      float mouseDiff = mouseY - y;
-      pos = map(mouseDiff - thumbSize/2, 0, height - thumbSize, posMin, posMax);
-      pos = constrain(pos, posMin, posMax);
-    }
+  
+  // Set viewport height (visible area height)
+  void setViewportHeight(float height) {
+    viewportHeight = max(0, height);
+    updateScrollRange();
   }
-
-  // Check if mouse is over thumb
-  boolean overRect(int x, int y, int width, int height) {
-    return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-  }
-
-  void mousePressed() {
-    if (over) {
-      locked = true;
-    } else if (mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height) {
-      // Click on the track - jump to position
-      float thumbY = constrain(mouseY - y - thumbSize/2, 0, height - thumbSize);
-      pos = map(thumbY, 0, height - thumbSize, posMin, posMax);
-      locked = true;
-    }
-  }
-
-  void mouseDragged() {
-    if (locked) {
-      float mouseDiff = mouseY - y;
-      pos = map(mouseDiff - thumbSize/2, 0, height - thumbSize, posMin, posMax);
-      pos = constrain(pos, posMin, posMax);
-    }
-  }
-
-  void mouseReleased() {
-    locked = false;
-  }
-
-  float getPos() {
-    return pos;
-  }
-
-  void display() {
-    if (posMax == 0) return; // Don't display if no scrolling needed
-    
-    // Track
-    fill(80, 85, 95);
-    rect(x, y, width, height, 5);
-    
-    // Thumb
-    if (over || locked) {
-      fill(190, 200, 210);
+  
+  // Update scroll range based on content and viewport heights
+  private void updateScrollRange() {
+    if (contentHeight <= viewportHeight) {
+      // Content fits in viewport, no scrolling needed
+      setRange(0, 0);
     } else {
-      fill(120, 130, 140);
+      // Content exceeds viewport, enable scrolling
+      setRange(0, contentHeight - viewportHeight);
+    }
+  }
+  
+  // Get scroll position
+  float getScrollPosition() {
+    return value;
+  }
+  
+  // Set the thumb size
+  void setThumbSize(int size) {
+    thumbSize = constrain(size, 10, height);
+  }
+  
+  // Set the value range
+  void setRange(float min, float max) {
+    valueMin = min;
+    valueMax = max;
+    valueRange = max - min;
+    value = constrain(value, valueMin, valueMax);
+  }
+  
+  // Get the normalized position of the thumb (0-1)
+  float getNormalizedValue() {
+    return map(value, valueMin, valueMax, 0, 1);
+  }
+  
+  // Set the value directly
+  void setValue(float newValue) {
+    value = constrain(newValue, valueMin, valueMax);
+  }
+    // Check if the mouse is over the scrollbar
+  boolean isOver(float mouseX, float mouseY) {
+    return (mouseX >= x && mouseX <= x + width && 
+            mouseY >= y && mouseY <= y + height);
+  }
+  
+  // Check if the mouse is over the thumb
+  boolean isOverThumb(float mouseX, float mouseY) {
+    float thumbY = map(value, valueMin, valueMax, y, y + height - thumbSize);
+    return (mouseX >= x && mouseX <= x + width && 
+            mouseY >= thumbY && mouseY <= thumbY + thumbSize);
+  }
+  
+  // Handle mouse pressed event
+  boolean handleMousePressed() {
+    if (isOverThumb(mouseX, mouseY)) {
+      isDragging = true;
+      return true;
+    } else if (isOver(mouseX, mouseY)) {
+      // Jump to clicked position
+      float newY = constrain(mouseY - y, 0, height - thumbSize);
+      value = map(newY, 0, height - thumbSize, valueMin, valueMax);
+      return true;
+    }
+    return false;
+  }
+  
+  // Handle mouse dragged event
+  boolean handleMouseDragged() {
+    if (isDragging) {
+      float newY = constrain(mouseY - y, 0, height - thumbSize);
+      value = map(newY, 0, height - thumbSize, valueMin, valueMax);
+      return true;
+    }
+    return false;
+  }
+  
+  // Handle mouse released event
+  void handleMouseReleased() {
+    isDragging = false;
+  }
+  
+  // Handle mouse wheel event
+  void handleMouseWheel(MouseEvent event) {
+    float e = event.getCount();
+    // Adjust scroll position based on wheel direction
+    value = constrain(value + e * 20, valueMin, valueMax);
+  }
+  
+  // Draw the scrollbar
+  void draw() {
+    // Draw background
+    fill(60, 60, 70);
+    rect(x, y, width, height);
+    
+    // Draw thumb
+    if (isDragging) {
+      fill(200, 200, 220);
+    } else {
+      fill(120, 120, 140);
     }
     
-    // Calculate thumb position
-    int thumbY = int(map(pos, posMin, posMax, y, y + height - thumbSize));
-    rect(x, thumbY, width, thumbSize, 5);
+    float thumbY = map(value, valueMin, valueMax, y, y + height - thumbSize);
+    rect(x, thumbY, width, thumbSize);
   }
 }
