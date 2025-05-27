@@ -42,8 +42,8 @@ class SoundSource {
     
     // First convert spherical to Cartesian coordinates without rotation
     float baseX = radius * sin(zenith) * cos(azimuth);
-    float baseZ = radius * sin(zenith) * sin(azimuth);
-    float baseY = -radius * cos(zenith); // Flip the Y-axis
+    float baseZ = -radius * sin(zenith) * sin(azimuth);
+    float baseY = radius * cos(zenith); // Flip the Y-axis
     
     // Now apply rotations in order: roll (Z), yaw (Y), pitch (X)
     

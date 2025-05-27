@@ -87,14 +87,23 @@ class MidiMappingManager {
     String key = generateKey("cc", channel, number);
     return midiLookup.get(key);
   }
-
   ArrayList<MidiMapping> findMappingsForSysEx(byte[] data) {
-    String hexString = bytesToHexString(data);
     ArrayList<MidiMapping> matches = new ArrayList<MidiMapping>();
-
-    if (sysExLookup.containsKey(hexString)) {
-      matches.add(sysExLookup.get(hexString));
+    
+    // Check all SysEx mappings for matches using pattern matching
+    for (SysExMapping mapping : sysExLookup.values()) {
+      if (mapping.matches(data)) {
+        matches.add(mapping);
+        // Debug log - helps with troubleshooting
+        println("SysEx match found: " + mapping.name + " (" + mapping.parameter + ")");
+      }
     }
+    
+    // If no matches found, log for debugging
+    if (matches.isEmpty()) {
+      println("No SysEx mapping match found for message: " + bytesToHexString(data));
+    }
+    
     return matches;
   }
 

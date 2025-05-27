@@ -111,6 +111,20 @@ class OscHelper {
     sendMessage(pitch);
   }
 
+    // Send a cube pitch rotation message
+  void sendSourceAzimuth(int trackNumber,float azimuth) {
+    setAddress("/track/" + trackNumber + "/azimuth");
+    sendMessage(azimuth);
+  }
+
+  // Send a cube zenith rotation message
+  void sendSourceZenith(int trackNumber,float zenith) {
+    setAddress("/track/" + trackNumber + "/zenith");
+    sendMessage(zenith);
+  }
+
+
+
   // Handle received OSC messages
   void handleOscEvent(OscMessage msg) {
     if (parentCallback != null) {

@@ -76,7 +76,7 @@ class UIManager {
     });
     
     // Azimuth slider
-    CustomSlider azimuthSlider = sliderManager.addSlider("azimuth", 0, TWO_PI, azimuth, "Azimuth");
+    CustomSlider azimuthSlider = sliderManager.addSlider("azimuth", -PI, PI, azimuth, "Azimuth");
     azimuthSlider.setColors(
       color(100, 100, 120),  // background
       color(150, 150, 200),  // foreground
@@ -89,9 +89,9 @@ class UIManager {
           SoundSource source = soundSources.get(selectedSource);
           source.azimuth = value;
           source.updatePosition(); // Update the position of the sound source
-
+          println("slider azimuth value: ",source.azimuth);
           // Send OSC message for azimuth
-          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, 0, TWO_PI, 0, 1));
+          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
         }
       }
     });

@@ -94,7 +94,7 @@ void setup() {
   visualizationManager.setContainer(layoutManager.mainViewArea);
 
   // Initialize OSC Helper
-  oscHelper = new OscHelper(this, 8000, "127.0.0.1", 8001, new ParentCallback() {
+  oscHelper = new OscHelper(this, 8000, "192.168.1.50", 8001, new ParentCallback() {
     public void onOscMessageReceived(OscMessage msg) {
       handleOscMessage(msg);
     }
@@ -162,7 +162,7 @@ void setup() {
   MidiBus.list(); // List available MIDI devices in the console
   String[] availableDevices = MidiBus.availableInputs();
   if (availableDevices.length > 0) {
-      midiBus = new MidiBus(this, 0, -1);
+      midiBus = new MidiBus(this, 1, -1);
       println("MIDI device initialized: " + availableDevices[0]);
   } else {
       println("No MIDI devices found. MIDI functionality will be disabled.");
@@ -324,7 +324,10 @@ public void controllerChange(int channel, int number, int value) {
 
   if (mapping != null) {
     float normalizedValue = mapping.getNormalizedValue(value);
-
+    CCMapping ccMapping = (CCMapping) mapping;
+    int trackNum = ccMapping.getTrackNumber(number);
+    selectedSource = trackNum;
+    uiManager.updateSliders(selectedSource);
     switch (mapping.action) {
       case "updateSource":
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
@@ -354,9 +357,8 @@ public void controllerChange(int channel, int number, int value) {
       case "selectSource":
         // Only trigger source selection when value is in the active range
         if (mapping instanceof CCMapping) {
-          CCMapping ccMapping = (CCMapping) mapping;
-          int sourceIndex = ccMapping.getTrackNumber(number);
-          if (sourceIndex >= 0 && sourceIndex < soundSources.size()) {            selectedSource = sourceIndex;
+          if (trackNum >= 0 && trackNum < soundSources.size()) {
+            selectedSource = trackNum;
             updateUIControls(soundSources.get(selectedSource));
             println("Selected source: " + selectedSource);
           }
@@ -365,8 +367,7 @@ public void controllerChange(int channel, int number, int value) {
         
       case "toggleMute":
         if (mapping instanceof CCMapping) {
-          CCMapping ccMapping = (CCMapping) mapping;
-          int trackNum = ccMapping.getTrackNumber(number);
+          
           if (trackNum >= 0 && trackNum < tracks.size()) {
             boolean muted = value > 63; // Consider values > 63 as mute ON
             tracks.get(trackNum).setMuted(muted);
@@ -383,8 +384,6 @@ public void controllerChange(int channel, int number, int value) {
         
       case "setTrackVolume":
         if (mapping instanceof CCMapping) {
-          CCMapping ccMapping = (CCMapping) mapping;
-          int trackNum = ccMapping.getTrackNumber(number);
           if (trackNum >= 0 && trackNum < tracks.size()) {
             tracks.get(trackNum).setVolume(normalizedValue);
             // If this track has a corresponding sound source, update its volume too
@@ -404,8 +403,7 @@ public void controllerChange(int channel, int number, int value) {
         
       case "setPan":
         if (mapping instanceof CCMapping) {
-          CCMapping ccMapping = (CCMapping) mapping;
-          int trackNum = ccMapping.getTrackNumber(number);
+      
           if (trackNum >= 0 && trackNum < tracks.size()) {
             // Map the pan value (0-127) to the zenith angle (-PI to +PI)
             float zenith = map(value, 0, 127, -PI, PI);
@@ -445,8 +443,13 @@ void rawMidi(byte[] data) {
     // Find matching mappings for this SysEx message
     ArrayList<MidiMapping> matches = midiManager.findMappingsForSysEx(data);
     
+    // Log if no matches were found
+    if (matches.isEmpty()) {
+      println("No matching SysEx mappings found for this message");
+    }
+    
     for (MidiMapping mapping : matches) {
-      println("Found matching SysEx mapping: " + mapping.name);
+      println("Found matching SysEx mapping: " + mapping.name + " (" + mapping.action + ")");
       
       switch (mapping.action) {
         case "setMasterVolume":
@@ -484,7 +487,6 @@ void rawMidi(byte[] data) {
           // Process positioning X data
           if (data.length >= 13 && data[7] == 0x05) { // Check for X position command (0x05)
             int trackNum = data[8] & 0xFF;
-            
             if (trackNum < soundSources.size()) {
               // Extract the 4 bytes that represent the X position
               int xPos = parsePositionValue(data[9], data[10], data[11], data[12]);
@@ -512,19 +514,18 @@ void rawMidi(byte[] data) {
                 
                 // Update UI if this is the currently selected source
                 if (trackNum == selectedSource) {
-                  cp5.getController("radius").setValue(source.radius);
-                  cp5.getController("azimuth").setValue(source.azimuth);
+                 uiManager.updateSliders(selectedSource);
                 }
-                
-                // Send OSC updates
-                oscHelper.sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+
+                oscHelper.sendSourceAzimuth(trackNum+1, map(azimuth, 0, TWO_PI, -1, 1));
+
               } else {
                 // Store X position for later
                 source.xNormalized = xNormalized;
                 source.hasXPosition = true;
               }
               
-              println("Set X position for track " + trackNum + ": " + xPos + " (normalized: " + xNormalized + ")");
+              println("Set X position for track " + trackNum+1 + ": " + xPos + " (normalized: " + xNormalized + ")");
             }
           }
           break;
@@ -560,19 +561,18 @@ void rawMidi(byte[] data) {
                 
                 // Update UI if this is the currently selected source
                 if (trackNum == selectedSource) {
-                  cp5.getController("radius").setValue(source.radius);
-                  cp5.getController("azimuth").setValue(source.azimuth);
+                  uiManager.updateSliders(selectedSource);
                 }
-                
-                // Send OSC updates
-                oscHelper.sendOscVolume(trackNum + 1, map(source.radius, 50, 600, 0, 1));
+
+                oscHelper.sendSourceAzimuth(trackNum+1, map(azimuth, 0, TWO_PI, -1, 1));
+                println("azimuth: " + azimuth + ", radius: " + radius);
               } else {
                 // Store Y position for later
                 source.yNormalized = yNormalized;
                 source.hasYPosition = true;
               }
               
-              println("Set Y position for track " + trackNum + ": " + yPos + " (normalized: " + yNormalized + ")");
+              println("Set Y position for track " + trackNum+1 + ": " + yPos + " (normalized: " + yNormalized + ")");
             }
           }
           break;
@@ -592,7 +592,7 @@ void rawMidi(byte[] data) {
               
               // Update UI if this is the currently selected source
               if (trackNum == selectedSource) {
-                cp5.getController("zenith").setValue(source.zenith);
+                uiManager.updateSliders(selectedSource);
               }
               
               println("Set elevation for track " + trackNum + ": " + zenith);
