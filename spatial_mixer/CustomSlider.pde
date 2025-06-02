@@ -21,10 +21,10 @@ class CustomSlider {
   color activeColor = color(255, 255, 255);          // Active color (when dragging)
   color labelColor = color(255, 255, 200);           // Label text color
   color valueTextColor = color(255);                 // Value text color
-  
-  // State
+    // State
   boolean isDragging = false;                        // Whether the slider is being dragged
   boolean isHovering = false;                        // Whether the mouse is hovering over the slider
+  boolean suppressCallback = false;                  // Flag to suppress callback during programmatic updates
   
   // Callback
   SliderCallback callback;                           // Callback function for value changes
@@ -65,15 +65,19 @@ class CustomSlider {
     this.width = width;
     this.height = height;
   }
-  
-  // Set the current value
+    // Set the current value
   void setValue(float value) {
     this.value = constrain(value, minValue, maxValue);
     
-    // Call the callback if set
-    if (callback != null) {
+    // Call the callback if set and not suppressed
+    if (callback != null && !suppressCallback) {
       callback.onValueChanged(this, this.value);
     }
+  }
+  
+  // Set value without triggering callback (for programmatic updates)
+  void setValueSilent(float value) {
+    this.value = constrain(value, minValue, maxValue);
   }
   
   // Get the current value
@@ -120,8 +124,7 @@ class CustomSlider {
       // For larger ranges, show fewer decimal places
       displayValue = nf(value, 0, 1);
     }
-    
-    // For angle sliders, show degrees
+      // For angle sliders, show degrees
     if (label.toLowerCase().contains("roll") || 
         label.toLowerCase().contains("yaw") || 
         label.toLowerCase().contains("pitch") || 
@@ -135,6 +138,9 @@ class CustomSlider {
         float degrees = degrees(value);
         displayValue = nf(degrees, 0, 1) + "°";
       } else if (minValue == 0 && maxValue == PI) {
+        float degrees = degrees(value);
+        displayValue = nf(degrees, 0, 1) + "°";
+      } else if (minValue == -PI/2 && maxValue == PI/2) {
         float degrees = degrees(value);
         displayValue = nf(degrees, 0, 1) + "°";
       }

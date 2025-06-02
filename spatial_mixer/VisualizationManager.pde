@@ -104,8 +104,12 @@ class VisualizationManager {
       float deltaY = mouseY - lastMouseY;
       
       // Update rotation values (scale the movement)
-      yaw += deltaX * 0.01;
-      pitch += deltaY * 0.01;
+      // Map mouse movement to your coordinate system rotations
+      yaw += deltaX * 0.01;    // Horizontal mouse movement -> yaw (Y-axis rotation)
+      pitch += deltaY * 0.01;  // Vertical mouse movement -> pitch (X-axis rotation)
+      
+      // Constrain pitch to avoid gimbal lock
+      pitch = constrain(pitch, -PI/2, PI/2);
       
       // Store current mouse position for next frame
       lastMouseX = mouseX;
@@ -124,13 +128,13 @@ class VisualizationManager {
     yaw = 0;
     pitch = 0;
     
-    // Reset central head rotation
-    if (centralHead != null) {
-      centralHead.resetRotation();
-    }
+    // // Reset central head rotation
+    // if (centralHead != null) {
+    //   centralHead.resetRotation();
+    // }
     
-    // Reset cube rotation
-    resetCubeRotation();
+    // // Reset cube rotation
+    // resetCubeRotation();
   }
   
   // Reset only camera rotation (not head)
@@ -195,7 +199,7 @@ class View3D {
     pushMatrix();
 
     // Calculate the scale factor to fit the cube within the container
-    float scaleFactor = min(container.width, container.height) / (boundarySize * 1.5);
+    float scaleFactor = min(container.width, container.height) / (boundarySize *1.5f);
 
     // Translate to the center of the container in all three dimensions
     translate(container.x + container.width / 2, container.y + container.height / 2, 0);
@@ -210,7 +214,7 @@ class View3D {
     
     // Set up lighting
     ambientLight(50, 50, 50);
-    directionalLight(200, 200, 200, -1, -1, -1);
+    directionalLight(200, 200, 200, 0, 1, -1);
 
     // Draw the cube frame
     cubeRenderer.drawCubeFrame(container);
@@ -245,7 +249,7 @@ class View3D {
         // Draw a line connecting the source to the head
         stroke(180, 180, 200, 150);
         strokeWeight(1);
-        line(0, 0, 0, source.x, source.y, source.z);
+        line(0, 0, 0, source.x, -source.y, -source.z);
       }
     }
   }
@@ -366,21 +370,21 @@ class View2D {
       
       // Get the source position
       float sourceX = source.x;
-      float sourceY = source.y;
-      float sourceZ = source.z;
+      float sourceY = -source.y;
+      float sourceZ = -source.z;
       
-      // Apply cube rotation transformation if available
-      if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
-        PVector rotatedPos = rotatePoint(
-          new PVector(sourceX, sourceY, sourceZ),
-          parent.view3D.cubeRenderer.roll,
-          parent.view3D.cubeRenderer.yaw,
-          parent.view3D.cubeRenderer.pitch
-        );
+      // // Apply cube rotation transformation if available
+      // if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
+      //   PVector rotatedPos = rotatePoint(
+      //     new PVector(sourceX, sourceY, sourceZ),
+      //     parent.view3D.cubeRenderer.roll,
+      //     parent.view3D.cubeRenderer.yaw,
+      //     parent.view3D.cubeRenderer.pitch
+      //   );
         
-        sourceX = rotatedPos.x;
-        sourceY = rotatedPos.y;
-      }
+      //   sourceX = rotatedPos.x;
+      //   sourceY = rotatedPos.y;
+      // }
       
       // Draw the source with its color
       draw2DSource(sourceX, sourceY, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
@@ -466,21 +470,21 @@ class View2D {
       
       // Get the source position
       float sourceX = source.x;
-      float sourceY = source.y;
-      float sourceZ = source.z;
+      float sourceY = -source.y;
+      float sourceZ = -source.z;
       
-      // Apply cube rotation transformation if available
-      if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
-        PVector rotatedPos = rotatePoint(
-          new PVector(sourceX, sourceY, sourceZ),
-          parent.view3D.cubeRenderer.roll,
-          parent.view3D.cubeRenderer.yaw,
-          parent.view3D.cubeRenderer.pitch
-        );
+      // // Apply cube rotation transformation if available
+      // if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
+      //   PVector rotatedPos = rotatePoint(
+      //     new PVector(sourceX, sourceY, sourceZ),
+      //     parent.view3D.cubeRenderer.roll,
+      //     parent.view3D.cubeRenderer.yaw,
+      //     parent.view3D.cubeRenderer.pitch
+      //   );
         
-        sourceX = rotatedPos.x;
-        sourceZ = rotatedPos.z;
-      }
+      //   sourceX = rotatedPos.x;
+      //   sourceZ = rotatedPos.z;
+      // }
       
       // Draw the source with its color
       draw2DSource(sourceX, sourceZ, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
@@ -566,21 +570,21 @@ class View2D {
       
       // Get the source position
       float sourceX = source.x;
-      float sourceY = source.y;
+      float sourceY = -source.y;
       float sourceZ = source.z;
       
-      // Apply cube rotation transformation if available
-      if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
-        PVector rotatedPos = rotatePoint(
-          new PVector(sourceX, sourceY, sourceZ),
-          parent.view3D.cubeRenderer.roll,
-          parent.view3D.cubeRenderer.yaw,
-          parent.view3D.cubeRenderer.pitch
-        );
+      // // Apply cube rotation transformation if available
+      // if (parent != null && parent.view3D != null && parent.view3D.cubeRenderer != null) {
+      //   PVector rotatedPos = rotatePoint(
+      //     new PVector(sourceX, sourceY, sourceZ),
+      //     parent.view3D.cubeRenderer.roll,
+      //     parent.view3D.cubeRenderer.yaw,
+      //     parent.view3D.cubeRenderer.pitch
+      //   );
         
-        sourceY = rotatedPos.y;
-        sourceZ = rotatedPos.z;
-      }
+      //   sourceY = rotatedPos.y;
+      //   sourceZ = rotatedPos.z;
+      // }
       
       // Draw the source with its color
       draw2DSource(sourceZ, sourceY, source.volume, source.vuLevel, isSelected, i + 1, source.sourceColor);
@@ -652,46 +656,46 @@ class View2D {
       drawDashedLine(vertices[5].x, vertices[5].y, vertices[6].x, vertices[6].y);
       drawDashedLine(vertices[6].x, vertices[6].y, vertices[7].x, vertices[7].y);
       drawDashedLine(vertices[7].x, vertices[7].y, vertices[4].x, vertices[4].y);
-      
+
     } else if (viewType.equals("Top")) {
       // Top view (X-Z plane)
       beginShape();
-      vertex(vertices[0].x, vertices[0].z);
-      vertex(vertices[1].x, vertices[1].z);
-      vertex(vertices[5].x, vertices[5].z);
-      vertex(vertices[4].x, vertices[4].z);
+      vertex(vertices[0].x, -vertices[0].z);
+      vertex(vertices[1].x, -vertices[1].z);
+      vertex(vertices[5].x, -vertices[5].z);
+      vertex(vertices[4].x, -vertices[4].z);
       endShape(CLOSE);
       
       // Draw diagonal for orientation reference
       stroke(80, 120, 200, 100);
-      line(vertices[0].x, vertices[0].z, vertices[5].x, vertices[5].z);
+      line(vertices[0].x, -vertices[0].z, vertices[5].x, -vertices[5].z);
       
       // Draw bottom face with dashed lines
       stroke(80, 120, 200, 80);
-      drawDashedLine(vertices[3].x, vertices[3].z, vertices[2].x, vertices[2].z);
-      drawDashedLine(vertices[2].x, vertices[2].z, vertices[6].x, vertices[6].z);
-      drawDashedLine(vertices[6].x, vertices[6].z, vertices[7].x, vertices[7].z);
-      drawDashedLine(vertices[7].x, vertices[7].z, vertices[3].x, vertices[3].z);
+      drawDashedLine(vertices[3].x, -vertices[3].z, vertices[2].x, -vertices[2].z);
+      drawDashedLine(vertices[2].x, -vertices[2].z, vertices[6].x, -vertices[6].z);
+      drawDashedLine(vertices[6].x, -vertices[6].z, vertices[7].x, -vertices[7].z);
+      drawDashedLine(vertices[7].x, -vertices[7].z, vertices[3].x, -vertices[3].z);
       
     } else if (viewType.equals("Side")) {
       // Side view (Z-Y plane)
       beginShape();
-      vertex(vertices[0].z, vertices[0].y);
-      vertex(vertices[4].z, vertices[4].y);
-      vertex(vertices[7].z, vertices[7].y);
-      vertex(vertices[3].z, vertices[3].y);
+      vertex(-vertices[0].z, vertices[0].y);
+      vertex(-vertices[4].z, vertices[4].y);
+      vertex(-vertices[7].z, vertices[7].y);
+      vertex(-vertices[3].z, vertices[3].y);
       endShape(CLOSE);
       
       // Draw diagonal for orientation reference
       stroke(80, 120, 200, 100);
-      line(vertices[0].z, vertices[0].y, vertices[7].z, vertices[7].y);
+      line(-vertices[0].z, vertices[0].y, -vertices[7].z, vertices[7].y);
       
       // Draw right face with dashed lines
       stroke(80, 120, 200, 80);
-      drawDashedLine(vertices[1].z, vertices[1].y, vertices[5].z, vertices[5].y);
-      drawDashedLine(vertices[5].z, vertices[5].y, vertices[6].z, vertices[6].y);
-      drawDashedLine(vertices[6].z, vertices[6].y, vertices[2].z, vertices[2].y);
-      drawDashedLine(vertices[2].z, vertices[2].y, vertices[1].z, vertices[1].y);
+      drawDashedLine(-vertices[1].z, vertices[1].y, -vertices[5].z, vertices[5].y);
+      drawDashedLine(-vertices[5].z, vertices[5].y, -vertices[6].z, vertices[6].y);
+      drawDashedLine(-vertices[6].z, vertices[6].y, -vertices[2].z, vertices[2].y);
+      drawDashedLine(-vertices[2].z, vertices[2].y, -vertices[1].z, vertices[1].y);
     }
   }
   

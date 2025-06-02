@@ -41,7 +41,7 @@ class CubeRenderer {
     
     // Apply the cube's own rotation
     rotateZ(roll);  // Roll (Z-axis)
-    rotateY(yaw);   // Yaw (Y-axis)
+    rotateY(-yaw);   // Yaw (Y-axis)
     rotateX(pitch); // Pitch (X-axis)
     
     // Disable the default drawing of the box
@@ -163,10 +163,10 @@ class CubeRenderer {
     drawGradientEdge(halfSize, halfSize, halfSize, halfSize, -halfSize, halfSize, backColor, backColor);
     drawGradientEdge(halfSize, -halfSize, halfSize, halfSize, -halfSize, -halfSize, backColor, frontColor);
     
-    // Draw gradient mesh on right side
-    drawGradientMesh(halfSize, -halfSize, -halfSize,
-                    halfSize, halfSize, halfSize,
-                    10, frontColor, backColor, true);
+    // // Draw gradient mesh on right side
+    // drawGradientMesh(halfSize, -halfSize, -halfSize,
+    //                 halfSize, halfSize, halfSize,
+    //                 10, frontColor, backColor, true);
     
     // Bottom face - with gradient mesh
     drawGradientEdge(-halfSize, halfSize, -halfSize, halfSize, halfSize, -halfSize, frontColor, frontColor);

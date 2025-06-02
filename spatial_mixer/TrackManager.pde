@@ -35,7 +35,7 @@ class TrackManager {
   void draw(int selectedSource) {
     if (container == null) return;
 
-    drawContainerBackground(container, "Mixer Channels");
+    drawContainerBackground(container, "");
 
     // Draw master track (never selected)
     masterTrack.draw(false);
@@ -238,14 +238,37 @@ class Track {
     float buttonY = y + height - buttonHeight - padding;
     float faderTop = y + labelHeight + padding;
     float faderBottom = buttonY - padding;
-    float faderHeight = faderBottom - faderTop;
-      // Determine background color based on source type
+    float faderHeight = faderBottom - faderTop;      // Determine background color based on source type
     color bgColor = color(50, 55, 65); // Default background color
-    // Highlight the selected track with yellow background
+    
+    // Check if we have a valid index and sound source available
+    if (index >= 0 && index < soundSources.size()) {
+      if(index == 0){
+        // Special case for master track, no related source
+        bgColor = color(135, 116, 96); // Default color for master track
+      }else{
+        SoundSource relatedSource = soundSources.get(index-1);
+        SourceType sourceType = relatedSource.type;
+        
+        // Set background color based on source type
+        switch (sourceType) {
+          case SEND:
+            bgColor = color(80, 30, 30); // Dark red for Send sources
+            break;
+          case AMBI:
+            bgColor = color(30, 30, 80); // Dark blue for Ambi sources
+            break;
+          case MONO_STEREO:
+          default:
+            bgColor = color(50, 55, 65); // Current color for Mono/Stereo sources
+            break;
+        }
+      }
+    }
+    
+    // Highlight the selected track with orange background (overrides source type color)
     if (isSelected) {
-      bgColor = color(225, 140, 60); // Yellow for selected track
-    } else {
-      bgColor = color(50, 55, 65);   // Regular color for non-selected track
+      bgColor = color(255, 140, 60); // Orange for selected track
     }
     // Draw track background with type-specific color
     noStroke();

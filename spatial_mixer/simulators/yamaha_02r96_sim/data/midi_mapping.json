@@ -98,7 +98,7 @@
           "channel": 0,
           "valueRange": [0, 127],
           "controllerRange": [89, 118],
-          "action": "setZenith",
+          "action": "setPan",
           "description": "Controls panning for tracks 1-24"
         },
         {
@@ -108,7 +108,7 @@
           "channel": 1,
           "valueRange": [0, 127],
           "controllerRange": [89, 118],
-          "action": "setZenith",
+          "action": "setPan",
           "trackOffset": 24,
           "description": "Controls panning for tracks 25-48"
         },

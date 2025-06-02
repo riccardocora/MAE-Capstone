@@ -111,6 +111,12 @@ class OscHelper {
     sendMessage(pitch);
   }
 
+  // Send a /ypr message with yaw, pitch, and roll values
+  void sendYprMessage(float yaw, float pitch, float roll) {
+    setAddress("/ypr");
+    sendMessage(yaw, pitch, roll);
+  }
+
     // Send a cube pitch rotation message
   void sendSourceAzimuth(int trackNumber,float azimuth) {
     setAddress("/track/" + trackNumber + "/azimuth");

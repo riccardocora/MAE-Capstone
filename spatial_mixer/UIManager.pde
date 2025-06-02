@@ -61,12 +61,12 @@ class UIManager {
       color(150, 150, 200),  // foreground
       color(255, 255, 255),  // active
       color(255, 255, 200)   // label
-    );
-    radiusSlider.setCallback(new SliderCallback() {
+    );    radiusSlider.setCallback(new SliderCallback() {
       void onValueChanged(CustomSlider slider, float value) {
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
           SoundSource source = soundSources.get(selectedSource);
           source.radius = value;
+          source.positionUpdated = true; // Mark position for update
           source.updatePosition(); // Update the position of the sound source
 
           // Send OSC message for radius
@@ -82,12 +82,12 @@ class UIManager {
       color(150, 150, 200),  // foreground
       color(255, 255, 255),  // active
       color(255, 255, 200)   // label
-    );
-    azimuthSlider.setCallback(new SliderCallback() {
+    );    azimuthSlider.setCallback(new SliderCallback() {
       void onValueChanged(CustomSlider slider, float value) {
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
           SoundSource source = soundSources.get(selectedSource);
           source.azimuth = value;
+          source.positionUpdated = true; // Mark position for update
           source.updatePosition(); // Update the position of the sound source
           println("slider azimuth value: ",source.azimuth);
           // Send OSC message for azimuth
@@ -95,24 +95,23 @@ class UIManager {
         }
       }
     });
-    
-    // Zenith slider
-    CustomSlider zenithSlider = sliderManager.addSlider("zenith", 0, PI, zenith, "Zenith");
+      // Zenith slider
+    CustomSlider zenithSlider = sliderManager.addSlider("zenith", -PI/2, PI/2, zenith, "Zenith");
     zenithSlider.setColors(
       color(100, 100, 120),  // background
       color(150, 150, 200),  // foreground
       color(255, 255, 255),  // active
       color(255, 255, 200)   // label
-    );
-    zenithSlider.setCallback(new SliderCallback() {
+    );    zenithSlider.setCallback(new SliderCallback() {
       void onValueChanged(CustomSlider slider, float value) {
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
           SoundSource source = soundSources.get(selectedSource);
           source.zenith = value;
+          source.positionUpdated = true; // Mark position for update
           source.updatePosition(); // Update the position of the sound source
 
           // Send OSC message for zenith
-          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, 0, PI, 0, 1));
+          oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, -PI/2, PI/2, 0, 1));
         }
       }
     });
@@ -340,54 +339,51 @@ class UIManager {
   void mouseReleased() {
     sliderManager.mouseReleased();
   }
-
   // Update slider values based on the selected source
   void updateSliders(int selectedSourceIndex) {
     if (selectedSourceIndex >= 0 && selectedSourceIndex < soundSources.size()) {
       SoundSource source = soundSources.get(selectedSourceIndex);
       
-      // Update position sliders
+      // Update position sliders (silently to avoid callback loops)
       CustomSlider radiusSlider = sliderManager.getSlider("radius");
       if (radiusSlider != null) {
-        radiusSlider.setValue(source.radius);
+        radiusSlider.setValueSilent(source.radius);
       }
       
       CustomSlider azimuthSlider = sliderManager.getSlider("azimuth");
       if (azimuthSlider != null) {
-        azimuthSlider.setValue(source.azimuth);
+        azimuthSlider.setValueSilent(source.azimuth);
       }
       
       CustomSlider zenithSlider = sliderManager.getSlider("zenith");
       if (zenithSlider != null) {
-        zenithSlider.setValue(source.zenith);
+        zenithSlider.setValueSilent(source.zenith);
       }
       
-      // Update rotation sliders
+      // Update rotation sliders (silently to avoid callback loops)
       CustomSlider rollSlider = sliderManager.getSlider("roll");
       if (rollSlider != null) {
-        rollSlider.setValue(source.roll);
+        rollSlider.setValueSilent(source.roll);
       }
       
       CustomSlider yawSlider = sliderManager.getSlider("yaw");
       if (yawSlider != null) {
-        yawSlider.setValue(source.yaw);
+        yawSlider.setValueSilent(source.yaw);
       }
       
       CustomSlider pitchSlider = sliderManager.getSlider("pitch");
       if (pitchSlider != null) {
-        pitchSlider.setValue(source.pitch);
+        pitchSlider.setValueSilent(source.pitch);
       }
     }
   }
-  
-  // Update a specific slider value
+    // Update a specific slider value
   void updateSliderValue(String sliderName, float value) {
     CustomSlider slider = sliderManager.getSlider(sliderName);
     if (slider != null) {
-      slider.setValue(value);
+      slider.setValueSilent(value);
     }
   }
-
   // Update position sliders (radius, azimuth, zenith) for a source
   void updatePositionSliders(SoundSource source) {
     if (source != null) {

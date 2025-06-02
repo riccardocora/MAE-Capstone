@@ -27,6 +27,7 @@ VisualizationManager visualizationManager;
 CubeRenderer cubeRenderer;
 MidiBus midiBus; // MIDI connection
 OscHelper oscHelper; // OSC Helper instance
+OscHelper headTrackerOscHelper; // OSC Helper for head tracker
 
 MidiMappingManager midiManager; // MIDI mapping object
 String midiMappingFile = "data/midi_mapping.json";
@@ -48,7 +49,7 @@ float boundarySize = 800;
 // Default values for sliders
 float radius = 150;
 float azimuth = 0;
-float zenith = PI / 4;
+float zenith = 0; // Changed to 0 for horizontal (new range is -π/2 to π/2)
 
 Track masterTrack; // Declare a master track
 
@@ -64,7 +65,7 @@ void setup() {
   layoutManager = new LayoutManager(width, height);
   // Initialize sound sources and tracks with matching indices
   for (int i = 0; i < NUM_TRACKS; i++) {
-    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper, i));
+    tracks.add(new Track(i + 1, "Track " + (i + 1), 150 + i * 70, height - 300, oscHelper, i+1));
     SoundSource newSource = new SoundSource(150, random(0, TWO_PI), random(0, PI / 2));
     newSource.setSourceType(SourceType.MONO_STEREO); // Default all sources to MONO_STEREO
     soundSources.add(newSource);
@@ -94,32 +95,31 @@ void setup() {
   visualizationManager.setContainer(layoutManager.mainViewArea);
 
   // Initialize OSC Helper
-  oscHelper = new OscHelper(this, 8000, "192.168.1.50", 8001, new ParentCallback() {
+  oscHelper = new OscHelper(this, 8000, "127.0.0.1", 8001, new ParentCallback() {
     public void onOscMessageReceived(OscMessage msg) {
       handleOscMessage(msg);
     }
   });
   
+   // Initialize OSC Helper
+  headTrackerOscHelper = new OscHelper(this, 9100, "127.0.0.1", 9101, new ParentCallback() {
+    public void onOscMessageReceived(OscMessage msg) {
+      handleOscMessage(msg);
+    }
+  });
+
+
   // Initialize master track to the left of Track 1
   masterTrack = new Track(0, "Master", 70, height - 300, oscHelper,0);
 
 
-// Initialize track manager
+  // Initialize track manager
   trackManager = new TrackManager(tracks, masterTrack);
   trackManager.setContainer(layoutManager.trackControlsArea);
 
   // Setup UI controls
   uiManager.setupControls(radius, azimuth, zenith, boundarySize, midiManager.availableDevices);
   
-  // Initialize MIDI connection
-  
-//  if (availableDevices.length > 0) {
-//      midiBus = new MidiBus(this, availableDevices[0], availableDevices[0]); // Use the first available device
-//     println("MIDI device initialized: " + availableDevices[0]);
-//   } else {
-//     println("No MIDI devices found. MIDI functionality will be disabled.");
-//   }
-
   // Initialize OSC handlers
   oscHandlers.put("/track/*/volume", msg -> {
     int trackNum = parseTrackNumber(msg.addrPattern());
@@ -166,10 +166,7 @@ void setup() {
       println("MIDI device initialized: " + availableDevices[0]);
   } else {
       println("No MIDI devices found. MIDI functionality will be disabled.");
-  }
-
-
-  
+  } 
 }
 void handleOscMessage(OscMessage msg) {
   String pattern = msg.addrPattern();
@@ -214,7 +211,7 @@ void handleOscMessage(OscMessage msg) {
   Consumer<OscMessage> handler = findOscHandler(pattern);
   if (handler != null) {
     handler.accept(msg);
-  } else if (pattern.startsWith("/head/")) {
+  } else if (pattern.startsWith("/ypr")) {
     // Handle head rotation messages
     handleHeadRotationMessage(msg);
   } else {
@@ -226,6 +223,47 @@ void handleOscMessage(OscMessage msg) {
 void handleHeadRotationMessage(OscMessage msg) {
   String pattern = msg.addrPattern();
   
+  // Handle /ypr pattern from head tracker simulator
+  if (pattern.equals("/ypr")) {
+    // Check if we have enough arguments (expecting 3 floats: -yaw, -pitch, roll)
+    if (msg.typetag().length() < 3) {
+      println("Error: /ypr message requires 3 arguments (-yaw, -pitch, roll)");
+      return;
+    }
+      try {
+      // Extract the three rotation values: -yaw, -pitch, roll (in degrees)
+      float negYaw = msg.get(0).floatValue();    // -yaw in degrees
+      float negPitch = msg.get(1).floatValue();  // -pitch in degrees  
+      float roll = msg.get(2).floatValue();      // roll in degrees
+      
+      // Convert to positive values (since simulator sends negative values)
+      float yawDegrees = -negYaw;     // Convert back to positive yaw
+      float pitchDegrees = -negPitch; // Convert back to positive pitch
+      // roll is already correct
+      
+      // Convert degrees to radians for internal use
+      float yaw = radians(yawDegrees);
+      float pitch = radians(pitchDegrees);
+      float rollRad = radians(roll);
+      
+      // Update head rotation parameters
+      visualizationManager.centralHead.setYaw(yaw);
+      visualizationManager.centralHead.setPitch(pitch);
+      visualizationManager.centralHead.setRoll(rollRad);
+      
+      // Log the update
+      uiManager.logMessage(String.format("[Head] YPR updated - Yaw: %.2f°, Pitch: %.2f°, Roll: %.2f°", 
+                                        yawDegrees, pitchDegrees, roll));
+      headTrackerOscHelper.sendYprMessage(negYaw, negPitch, roll);
+
+    } catch (Exception e) {
+      println("Error parsing /ypr values: " + e.getMessage());
+      return;
+    }
+    return;
+  }
+  
+  // Handle individual head rotation patterns (legacy support)
   // Check if we have enough arguments
   if (msg.typetag().length() < 1) {
     println("Error: Head rotation message missing value");
@@ -249,23 +287,6 @@ void handleHeadRotationMessage(OscMessage msg) {
     return;
   }
   
-  // Update the appropriate head rotation parameter
-  if (pattern.equals("/head/roll")) {
-    // Map the incoming value (typically 0-1) to an appropriate rotation range (-PI to PI)
-    float mappedValue = map(value, 0, 1, -PI, PI);
-    visualizationManager.centralHead.setRoll(mappedValue);
-    uiManager.logMessage("[Head] Set roll to " + mappedValue);
-  } 
-  else if (pattern.equals("/head/yaw")) {
-    float mappedValue = map(value, 0, 1, -PI, PI);
-    visualizationManager.centralHead.setYaw(mappedValue);
-    uiManager.logMessage("[Head] Set yaw to " + mappedValue);
-  } 
-  else if (pattern.equals("/head/pitch")) {
-    float mappedValue = map(value, 0, 1, -PI, PI);
-    visualizationManager.centralHead.setPitch(mappedValue);
-    uiManager.logMessage("[Head] Set pitch to " + mappedValue);
-  }
 }
 
 // Handle cube rotation messages
@@ -326,15 +347,19 @@ public void controllerChange(int channel, int number, int value) {
     float normalizedValue = mapping.getNormalizedValue(value);
     CCMapping ccMapping = (CCMapping) mapping;
     int trackNum = ccMapping.getTrackNumber(number);
+    if(trackNum < 0 || trackNum >= soundSources.size()) {
+      println("Invalid track number: " + trackNum);
+      return; // Invalid track number, skip processing
+    }
     selectedSource = trackNum;
     uiManager.updateSliders(selectedSource);
     switch (mapping.action) {
       case "updateSource":
         if (selectedSource >= 0 && selectedSource < soundSources.size()) {
-          SoundSource source = soundSources.get(selectedSource);
-            if (mapping.parameter.equals("radius")) {
+          SoundSource source = soundSources.get(selectedSource);          if (mapping.parameter.equals("radius")) {
             float radius = map(normalizedValue, 0, 1, 50, 600);
             source.radius = radius;
+            source.positionUpdated = true; // Mark position for update
             source.updatePosition();
             uiManager.updateSliderValue("radius", source.radius);
             oscHelper.sendOscVolume(selectedSource + 1, normalizedValue);
@@ -342,12 +367,14 @@ public void controllerChange(int channel, int number, int value) {
           else if (mapping.parameter.equals("azimuth")) {
             float azimuth = map(normalizedValue, 0, 1, 0, TWO_PI);
             source.azimuth = azimuth;
+            source.positionUpdated = true; // Mark position for update
             source.updatePosition();
             uiManager.updateSliderValue("azimuth", source.azimuth);
           } 
           else if (mapping.parameter.equals("zenith")) {
             float zenith = map(normalizedValue, 0, 1, 0, PI);
             source.zenith = zenith;
+            source.positionUpdated = true; // Mark position for update
             source.updatePosition();
             uiManager.updateSliderValue("zenith", source.zenith);
           }
@@ -401,21 +428,42 @@ public void controllerChange(int channel, int number, int value) {
         oscHelper.sendOscVolume(0, normalizedValue); // Use OscHelper to send volume message
         break;
         
-      case "setPan":
+      case "setZenith":
         if (mapping instanceof CCMapping) {
       
-          if (trackNum >= 0 && trackNum < tracks.size()) {
-            // Map the pan value (0-127) to the zenith angle (-PI to +PI)
-            float zenith = map(value, 0, 127, -PI, PI);
-            if (trackNum < soundSources.size()) {
-              SoundSource source = soundSources.get(trackNum);
-              source.zenith = zenith;
-              source.updatePosition();
-              if (trackNum == selectedSource) {
-                uiManager.updateSliderValue("zenith", source.zenith);
+          if (trackNum >= 0 && trackNum < tracks.size() && trackNum < soundSources.size()) {
+            // Map the (pan value (0-127) to the zenith angle (-PI to +PI)
+            SoundSource source = soundSources.get(trackNum);
+            if (source != null) {
+              if(source.type == SourceType.MONO_STEREO){
+                float zenith = map(value, 0, 127, -PI/2, PI/2);
+                source.zenith = zenith;
+                source.positionUpdated = true; // Mark position for update
+                source.updatePosition();
+                if (trackNum == selectedSource) {
+                  uiManager.updateSliderValue("zenith", source.zenith);
+                }
+                oscHelper.sendOscMessage("/track/" + (trackNum + 1) + "/zenith", zenith);
+              }
+              else if(source.type == SourceType.AMBI){
+                float yaw = map(value, 0, 127, -PI, PI);
+                // Update the yaw value in the visualization manager
+                visualizationManager.setCubeYaw(yaw);
+                // Also apply rotation to all sound sources
+                for(SoundSource src : soundSources) {
+                  src.setYaw(yaw);
+                }
+
+
+                // Update UI sliders to reflect new yaw value
+                uiManager.updateSliders(selectedSource);
+                // Send OSC message for the updated yaw value
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/yaw", yaw);
+                println("Ambisonic yaw value: " + yaw);
+              } else {
+                println("Unsupported source type for X position update: " + source.type);
               }
             }
-            oscHelper.sendOscPan(trackNum + 1, zenith);
           }
         }
         break;
@@ -481,98 +529,113 @@ void rawMidi(byte[] data) {
             masterTrack.setSoloed(solo);
             oscHelper.sendOscSolo(0, solo); // Use OscHelper to send solo message
           }
-          break;
-          
+          break;        
         case "setPositionX":
-          // Process positioning X data
+          // Process positioning X data - directly update X coordinate
           if (data.length >= 13 && data[7] == 0x05) { // Check for X position command (0x05)
             int trackNum = data[8] & 0xFF;
-            if (trackNum < soundSources.size()) {
+            println("Received X position command for track: " + trackNum);
+            if (trackNum>=0 && trackNum < soundSources.size()) {
+              selectedSource = trackNum;
+              uiManager.updateSliders(selectedSource);
               // Extract the 4 bytes that represent the X position
               int xPos = parsePositionValue(data[9], data[10], data[11], data[12]);
-              
-              // Now we have the X position value, ranging from -63 to +63
-              // We'll use it to calculate part of the spherical coordinates
-              SoundSource source = soundSources.get(trackNum);
-              
-              // Store the X position to use later for radius calculation
-              float xNormalized = map(xPos, -63, 63, -1, 1);
-              
-              // Update source position if we already have the Y position
-              if (source.hasYPosition) {
-                // Convert cartesian (x, y) to polar (azimuth, radius)
-                float azimuth = atan2(source.yNormalized, xNormalized);
-                float radius = sqrt(xNormalized*xNormalized + source.yNormalized*source.yNormalized) * boundarySize/2;
+              println("Raw X position data: " + xPos);
+              // Get the selected source and update its X coordinate
+              SoundSource source = soundSources.get(selectedSource);
+
+              if(source.type == SourceType.MONO_STEREO){
+                // Map X position (-63 to +63) to coordinate space (-boundarySize/2 to +boundarySize/2)
+                float xCoord = map(xPos, -63, 63, -boundarySize/2, boundarySize/2);
+                println("Mapped X coordinate: " + xCoord);
                 
-                // Adjust azimuth to the 0-2π range
-                if (azimuth < 0) azimuth += TWO_PI;
+                  // Update cartesian coordinates (keeping current Y and Z)
+                source.updateFromCartesian(xCoord, source.y, source.z);
                 
-                // Update the sound source
-                source.radius = constrain(radius, 50, 600);
-                source.azimuth = azimuth;
-                source.updatePosition();
+                // Update UI sliders to reflect new polar coordinates
+                uiManager.updatePositionSliders(source);
                 
-                // Update UI if this is the currently selected source
-                if (trackNum == selectedSource) {
-                 uiManager.updateSliders(selectedSource);
+                // Send OSC messages for the updated polar coordinates
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, -PI/2, PI/2, 0, 1));
+                
+                println("Updated X coordinate to: " + xCoord + 
+                        ", new azimuth: " + degrees(source.azimuth) + "°" +
+                        ", new radius: " + source.radius);
+              }else if(source.type == SourceType.AMBI){
+                float value = map(xPos, -63, 63, -PI, PI);
+                // Update the roll value in the visualization manager
+                visualizationManager.setCubeRoll(value);
+                // Also apply rotation to all sound sources
+                for(SoundSource src : soundSources) {
+                  src.setRoll(value);
                 }
 
-                oscHelper.sendSourceAzimuth(trackNum+1, map(azimuth, 0, TWO_PI, -1, 1));
 
+                // Update UI sliders to reflect new roll value
+                uiManager.updateSliders(selectedSource);
+                // Send OSC message for the updated roll value
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/roll", value);
+                println("Ambisonic roll value: " + value);
               } else {
-                // Store X position for later
-                source.xNormalized = xNormalized;
-                source.hasXPosition = true;
+                println("Unsupported source type for X position update: " + source.type);
               }
-              
-              println("Set X position for track " + trackNum+1 + ": " + xPos + " (normalized: " + xNormalized + ")");
             }
           }
-          break;
-          
+          break;            
         case "setPositionY":
-          // Process positioning Y data
+          // Process positioning Y data - directly update Z coordinate (transverse axis)
           if (data.length >= 13 && data[7] == 0x06) { // Check for Y position command (0x06)
             int trackNum = data[8] & 0xFF;
-            
-            if (trackNum < soundSources.size()) {
+            println("Received Y position command for track: " + trackNum);
+
+              if (trackNum>=0 && trackNum < soundSources.size()) {
+              selectedSource = trackNum;
+              uiManager.updateSliders(selectedSource);
               // Extract the 4 bytes that represent the Y position
               int yPos = parsePositionValue(data[9], data[10], data[11], data[12]);
+              println("Raw Z position data: " + yPos);
+              // Get the selected source and update its Z coordinate
+              SoundSource source = soundSources.get(selectedSource);
               
-              // Now we have the Y position value, ranging from -63 to +63
-              SoundSource source = soundSources.get(trackNum);
-              
-              // Store the Y position to use later for radius calculation
-              float yNormalized = map(yPos, -63, 63, -1, 1);
-              
-              // Update source position if we already have the X position
-              if (source.hasXPosition) {
-                // Convert cartesian (x, y) to polar (azimuth, radius)
-                float azimuth = atan2(yNormalized, source.xNormalized);
-                float radius = sqrt(source.xNormalized*source.xNormalized + yNormalized*yNormalized) * boundarySize/2;
+              if(source.type == SourceType.MONO_STEREO){
+                // Map Y position (-63 to +63) to Z coordinate space (-boundarySize/2 to +boundarySize/2)
+                float zCoord = map(yPos, -63, 63, -boundarySize/2, boundarySize/2);
                 
-                // Adjust azimuth to the 0-2π range
-                if (azimuth < 0) azimuth += TWO_PI;
-                
-                // Update the sound source
-                source.radius = constrain(radius, 50, 600);
-                source.azimuth = azimuth;
-                source.updatePosition();
-                
-                // Update UI if this is the currently selected source
-                if (trackNum == selectedSource) {
-                  uiManager.updateSliders(selectedSource);
-                }
 
-                oscHelper.sendSourceAzimuth(trackNum+1, map(azimuth, 0, TWO_PI, -1, 1));
-                println("azimuth: " + azimuth + ", radius: " + radius);
-              } else {
-                // Store Y position for later
-                source.yNormalized = yNormalized;
-                source.hasYPosition = true;
-              }
+                println("Mapped Z coordinate: " + zCoord);
               
-              println("Set Y position for track " + trackNum+1 + ": " + yPos + " (normalized: " + yNormalized + ")");
+                  // Update cartesian coordinates (keeping current X and Y)
+                source.updateFromCartesian(source.x, source.y, zCoord);
+                
+                // Update UI sliders to reflect new polar coordinates
+                uiManager.updatePositionSliders(source);
+                
+                // Send OSC messages for the updated polar coordinates
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, -PI/2, PI/2, 0, 1));
+                
+                println("Updated Z coordinate to: " + zCoord + 
+                        ", new azimuth: " + degrees(source.azimuth) + "°" +
+                        ", new radius: " + source.radius);
+              } else if(source.type == SourceType.AMBI){
+                float value = map(yPos, -63, 63, -PI, PI);
+                // Update the roll value in the visualization manager
+                visualizationManager.setCubePitch(value);
+                // Also apply rotation to all sound sources
+                for(SoundSource src : soundSources) {
+                  src.setPitch(value);
+                }
+                // Update UI sliders to reflect new pitch value
+                uiManager.updateSliders(selectedSource);
+                // Send OSC message for the updated pitch value
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/pitch", value);
+                println("Ambisonic pitch value: " + value);
+              } else {
+                println("Unsupported source type for Y position update: " + source.type);
+              }
             }
           }
           break;
@@ -584,10 +647,10 @@ void rawMidi(byte[] data) {
             if (trackNum < soundSources.size()) {
               // Parse the elevation data (assuming it's a single byte value)
               float zenith = map(data[9] & 0xFF, 0, 127, 0, PI);
-              
-              // Update the sound source
+                // Update the sound source
               SoundSource source = soundSources.get(trackNum);
               source.zenith = zenith;
+              source.positionUpdated = true; // Mark position for update
               source.updatePosition();
               
               // Update UI if this is the currently selected source
@@ -606,23 +669,36 @@ void rawMidi(byte[] data) {
 
 // Helper function to parse position values from 4 SysEx bytes
 int parsePositionValue(byte b1, byte b2, byte b3, byte b4) {
-  // The format seems to be special where:
-  // 00 00 00 00 = position 0
-  // 00 00 00 3F = position +63 (max)
-  // 7F 7F 7F 41 = position -63 (min)
+  // The format is:
+  // 00 00 00 00 = position 0 (origin)
+  // 00 00 00 3F = position +63 (max positive)
+  // 7F 7F 7F 7F = position -1
+  // 7F 7F 7F 41 = position -63 (max negative)
+  // Negative values descend from 7F 7F 7F 7F (-1) down to 7F 7F 7F 41 (-63)
   
   int value = 0;
   
-  // Check if we're in the positive range (first byte is 0)
-  if ((b1 & 0xFF) == 0x00) {
+  // Check if we're in the positive range (first three bytes are 0)
+  if ((b1 & 0xFF) == 0x00 && (b2 & 0xFF) == 0x00 && (b3 & 0xFF) == 0x00) {
     // Positive range: 0 to +63
     value = b4 & 0x7F;  // Use the last byte for the positive range
     if (value > 63) value = 63;  // Clamp to max value
-  } else {
+  } else if ((b1 & 0xFF) == 0x7F && (b2 & 0xFF) == 0x7F && (b3 & 0xFF) == 0x7F) {
     // Negative range: -1 to -63
-    // Use a scale where 7F 7F 7F 7F = -1 and 7F 7F 7F 41 = -63
-    value = -((b4 & 0x7F) == 0x7F ? 1 : (0x7F - (b4 & 0x7F)));
-    if (value < -63) value = -63;  // Clamp to min value
+    // 7F 7F 7F 7F = -1, values descend as last byte decreases
+    // 7F 7F 7F 41 = -63 (0x41 = 65 decimal)
+    int lastByte = b4 & 0x7F;
+    if (lastByte == 0x7F) {
+      value = -1;  // 7F 7F 7F 7F = -1
+    } else {
+      // Calculate negative values: 7F->-1, 7E->-2, ..., 41->-63
+      value = -(0x7F - lastByte + 1);
+      if (value < -63) value = -63;  // Clamp to min value
+    }
+  } else {
+    // Invalid format, default to 0
+    println("Warning: Invalid position format in SysEx data");
+    value = 0;
   }
   
   return value;
@@ -800,7 +876,7 @@ void keyPressed() {
 }
 void addSource() {
   int idx = tracks.size();
-  SoundSource newSource = new SoundSource(150, random(0, TWO_PI), random(0, PI / 2));
+  SoundSource newSource = new SoundSource(150, random(0, TWO_PI), random(-PI/4, PI/4)); // Random zenith in new range
   newSource.setSourceType(SourceType.MONO_STEREO); // Explicitly set to MONO_STEREO
   soundSources.add(newSource);
   tracks.add(new Track(idx + 1, "Track " + (idx + 1), 150 + idx * 70, height - 300, oscHelper, idx));
