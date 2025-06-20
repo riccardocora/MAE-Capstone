@@ -27,7 +27,12 @@ VisualizationManager visualizationManager;
 CubeRenderer cubeRenderer;
 MidiBus midiBus; // MIDI connection
 OscHelper oscHelper; // OSC Helper instance
-OscHelper headTrackerOscHelper; // OSC Helper for head tracker
+OscHelper headTrackerOscHelperRec; // OSC Helper for head tracker
+
+OscHelper headTrackerOscHelperSend; // OSC Helper for head tracker
+
+OscHelper ambiMicRotatorOscHelper; // OSC Helper for ambisonic mic rotator
+
 
 MidiMappingManager midiManager; // MIDI mapping object
 String midiMappingFile = "data/midi_mapping.json";
@@ -95,19 +100,34 @@ void setup() {
   visualizationManager.setContainer(layoutManager.mainViewArea);
 
   // Initialize OSC Helper
-  oscHelper = new OscHelper(this, 8000, "127.0.0.1", 8001, new ParentCallback() {
+  oscHelper = new OscHelper(this, 8000, "192.168.1.50",8100, new ParentCallback() {
     public void onOscMessageReceived(OscMessage msg) {
       handleOscMessage(msg);
     }
   });
   
-   // Initialize OSC Helper
-  headTrackerOscHelper = new OscHelper(this, 9100, "127.0.0.1", 9101, new ParentCallback() {
+   // Initialize head tracker OSC Helper
+  headTrackerOscHelperRec = new OscHelper(this, 9000, "127.0.0.1", 9101, new ParentCallback() {
     public void onOscMessageReceived(OscMessage msg) {
       handleOscMessage(msg);
     }
   });
 
+
+    // Initialize head tracker OSC Helper
+  headTrackerOscHelperSend = new OscHelper(this, 9000, "192.168.1.50", 9000, new ParentCallback() {
+    public void onOscMessageReceived(OscMessage msg) {
+      handleOscMessage(msg);
+    }
+  });
+
+
+   // Initialize ambi mic rotator OSC Helper
+  ambiMicRotatorOscHelper = new OscHelper(this, 9200, "192.168.1.60", 9201, new ParentCallback() {
+    public void onOscMessageReceived(OscMessage msg) {
+      handleOscMessage(msg);
+    }
+  });
 
   // Initialize master track to the left of Track 1
   masterTrack = new Track(0, "Master", 70, height - 300, oscHelper,0);
@@ -237,8 +257,8 @@ void handleHeadRotationMessage(OscMessage msg) {
       float roll = msg.get(2).floatValue();      // roll in degrees
       
       // Convert to positive values (since simulator sends negative values)
-      float yawDegrees = -negYaw;     // Convert back to positive yaw
-      float pitchDegrees = -negPitch; // Convert back to positive pitch
+      float yawDegrees = negYaw;     // Convert back to positive yaw
+      float pitchDegrees = negPitch; // Convert back to positive pitch
       // roll is already correct
       
       // Convert degrees to radians for internal use
@@ -254,7 +274,7 @@ void handleHeadRotationMessage(OscMessage msg) {
       // Log the update
       uiManager.logMessage(String.format("[Head] YPR updated - Yaw: %.2f°, Pitch: %.2f°, Roll: %.2f°", 
                                         yawDegrees, pitchDegrees, roll));
-      headTrackerOscHelper.sendYprMessage(negYaw, negPitch, roll);
+      headTrackerOscHelperSend.sendYprMessage(negYaw, negPitch, roll);
 
     } catch (Exception e) {
       println("Error parsing /ypr values: " + e.getMessage());
@@ -396,7 +416,7 @@ public void controllerChange(int channel, int number, int value) {
         if (mapping instanceof CCMapping) {
           
           if (trackNum >= 0 && trackNum < tracks.size()) {
-            boolean muted = value > 63; // Consider values > 63 as mute ON
+            boolean muted = value < 63; // Consider values > 63 as mute ON
             tracks.get(trackNum).setMuted(muted);
             oscHelper.sendOscMute(trackNum + 1, muted);
           }
@@ -404,7 +424,7 @@ public void controllerChange(int channel, int number, int value) {
         break;
         
       case "toggleMasterMute":
-        boolean muted = value > 63;
+        boolean muted = value < 63;
         masterTrack.setMuted(muted);
         oscHelper.sendOscMute(0, muted); // Use OscHelper to send mute message
         break;
@@ -424,6 +444,7 @@ public void controllerChange(int channel, int number, int value) {
         break;
         
       case "setMasterVolume":
+        println("SET MASTER VOLUME: ",normalizedValue);
         masterTrack.setVolume(normalizedValue);
         oscHelper.sendOscVolume(0, normalizedValue); // Use OscHelper to send volume message
         break;
@@ -450,15 +471,22 @@ public void controllerChange(int channel, int number, int value) {
                 // Update the yaw value in the visualization manager
                 visualizationManager.setCubeYaw(yaw);
                 // Also apply rotation to all sound sources
-                for(SoundSource src : soundSources) {
-                  src.setYaw(yaw);
+                for(int i = 0; i < soundSources.size(); i++) {
+                  soundSources.get(i).setYaw(yaw);
+                  // Send OSC messages for the updated polar coordinates  
+                  float sendAzimuth = atan2(-soundSources.get(i).x,soundSources.get(i).z);
+                  if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/radius", soundSources.get(i).radius);
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/azimuth", map(sendAzimuth, -PI, PI, 0, 1));
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/zenith", map(soundSources.get(i).zenith, -PI/2, PI/2, 0, 1));
                 }
 
 
                 // Update UI sliders to reflect new yaw value
                 uiManager.updateSliders(selectedSource);
                 // Send OSC message for the updated yaw value
-                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/yaw", yaw);
+                ambiMicRotatorOscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/yaw", yaw);
                 println("Ambisonic yaw value: " + yaw);
               } else {
                 println("Unsupported source type for X position update: " + source.type);
@@ -554,10 +582,12 @@ void rawMidi(byte[] data) {
                 
                 // Update UI sliders to reflect new polar coordinates
                 uiManager.updatePositionSliders(source);
-                
+                float sendAzimuth = atan2(-source.x,source.z);
+                if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+
                 // Send OSC messages for the updated polar coordinates
                 oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
-                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(sendAzimuth, -PI, PI, 0, 1));
                 oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, -PI/2, PI/2, 0, 1));
                 
                 println("Updated X coordinate to: " + xCoord + 
@@ -568,15 +598,23 @@ void rawMidi(byte[] data) {
                 // Update the roll value in the visualization manager
                 visualizationManager.setCubeRoll(value);
                 // Also apply rotation to all sound sources
-                for(SoundSource src : soundSources) {
-                  src.setRoll(value);
+                for(int i = 0; i < soundSources.size(); i++) {
+                  soundSources.get(i).setRoll(value);
+                    // Send OSC messages for the updated polar coordinates
+                float sendAzimuth = atan2(-soundSources.get(i).x,soundSources.get(i).z);
+                 if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/radius", soundSources.get(i).radius);
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/azimuth", map(sendAzimuth,-PI, PI, 0, 1));
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/zenith", map(soundSources.get(i).zenith, -PI/2, PI/2, 0, 1));
+
                 }
 
 
                 // Update UI sliders to reflect new roll value
                 uiManager.updateSliders(selectedSource);
                 // Send OSC message for the updated roll value
-                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/roll", value);
+                ambiMicRotatorOscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/roll", value);
                 println("Ambisonic roll value: " + value);
               } else {
                 println("Unsupported source type for X position update: " + source.type);
@@ -613,8 +651,11 @@ void rawMidi(byte[] data) {
                 uiManager.updatePositionSliders(source);
                 
                 // Send OSC messages for the updated polar coordinates
+                float sendAzimuth = atan2(-source.x,source.z);
+                if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+
                 oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/radius", source.radius);
-                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
+                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(sendAzimuth, -PI, PI, 0, 1));
                 oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/zenith", map(source.zenith, -PI/2, PI/2, 0, 1));
                 
                 println("Updated Z coordinate to: " + zCoord + 
@@ -625,13 +666,20 @@ void rawMidi(byte[] data) {
                 // Update the roll value in the visualization manager
                 visualizationManager.setCubePitch(value);
                 // Also apply rotation to all sound sources
-                for(SoundSource src : soundSources) {
-                  src.setPitch(value);
+                for(int i = 0; i < soundSources.size(); i++) {
+                  soundSources.get(i).setPitch(value);
+                  float sendAzimuth = atan2(-soundSources.get(i).x,soundSources.get(i).z);
+                  if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+                  println("sendAzimuth: ",sendAzimuth);
+                  // Send OSC messages for the updated polar coordinates
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/radius", soundSources.get(i).radius);
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/azimuth", map(sendAzimuth,-PI, PI, 0, 1));
+                  oscHelper.sendOscMessage("/track/" + (i + 1) + "/zenith", map(soundSources.get(i).zenith, -PI/2, PI/2, 0, 1));
                 }
                 // Update UI sliders to reflect new pitch value
                 uiManager.updateSliders(selectedSource);
                 // Send OSC message for the updated pitch value
-                oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/pitch", value);
+                ambiMicRotatorOscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/pitch", value);
                 println("Ambisonic pitch value: " + value);
               } else {
                 println("Unsupported source type for Y position update: " + source.type);
@@ -957,4 +1005,3 @@ void updateSourceUI(int sourceIndex) {
     uiManager.updatePositionSliders(source);
   }
 }
-

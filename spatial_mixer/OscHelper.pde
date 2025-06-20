@@ -11,6 +11,7 @@ class OscHelper {
   OscHelper(PApplet parent, int receivePort, String remoteHost, int remotePort, ParentCallback callback) {
     oscP5 = new OscP5(parent, receivePort);
     remoteAddress = new NetAddress(remoteHost, remotePort);
+    println("remote address: ",remoteAddress);
     parentCallback = callback;
   }
 

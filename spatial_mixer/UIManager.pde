@@ -91,6 +91,9 @@ class UIManager {
           source.updatePosition(); // Update the position of the sound source
           println("slider azimuth value: ",source.azimuth);
           // Send OSC message for azimuth
+          float sendAzimuth = atan2(-source.x,source.z);
+          if (sendAzimuth < 0) sendAzimuth += TWO_PI;
+
           oscHelper.sendOscMessage("/track/" + (selectedSource + 1) + "/azimuth", map(source.azimuth, -PI, PI, 0, 1));
         }
       }

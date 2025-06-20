@@ -242,7 +242,7 @@ class Track {
     color bgColor = color(50, 55, 65); // Default background color
     
     // Check if we have a valid index and sound source available
-    if (index >= 0 && index < soundSources.size()) {
+    if (index >= 0 && index <= soundSources.size()) {
       if(index == 0){
         // Special case for master track, no related source
         bgColor = color(135, 116, 96); // Default color for master track
