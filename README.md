@@ -250,4 +250,3 @@ Developed for MAE Capstone Project by Riccardo Corà, Riccardo Moschen, Giuseppe
 
 ---
 
-*For detailed API documentation, see the inline comments in each .pde file.*
