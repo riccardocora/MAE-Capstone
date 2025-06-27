@@ -241,16 +241,12 @@ This project is part of an MAE Capstone project. For modifications or improvemen
 4. Document any new OSC message formats
 5. Update this README for significant changes
 
-## License
 
-[Specify your license here - typically for academic projects]
 
 ## Credits
 
-Developed for MAE Capstone Project
-- 3D Spatial Audio Visualization System
-- Processing-based real-time audio control interface
-- MIDI and OSC integration for professional audio workflows
+Developed for MAE Capstone Project by Riccardo Corà, Riccardo Moschen, Giuseppe Longo.
+
 
 ---
 
