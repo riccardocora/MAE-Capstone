@@ -230,4 +230,3 @@ This documentation corresponds to the current version of the 3D Spatial Audio Mi
 
 ---
 
-*This documentation index is designed to help you find information quickly and efficiently. If you can't find what you're looking for, please check the project repository or contact the maintainers.*
