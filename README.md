@@ -2,6 +2,8 @@
 
 A real-time 3D spatial audio visualization and control system built in Processing, designed for MAE Capstone project. This application provides an intuitive interface for positioning and controlling multiple audio sources in 3D space with support for MIDI control surfaces and OSC communication.
 
+![3D View](images/3d-view-screenshot.png) ![2D View](images/2d-view-screenshot.png)
+
 ## Features
 
 ### Core Functionality

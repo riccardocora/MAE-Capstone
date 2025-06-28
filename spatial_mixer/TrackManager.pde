@@ -127,11 +127,11 @@ class Track {
   float height = 120;
 
     // Layout constants - using proportions of total height for a more responsive design
-  final float LABEL_RATIO = 0.10;       // Proportion of height for track name label (reduced further)
-  final float BUTTON_RATIO = 0.08;      // Proportion of height for mute/solo buttons (reduced further)
-  final float PADDING_RATIO = 0.015;    // Proportion of height for padding (reduced further)
-  final float FADER_WIDTH = 28;         // Width of the fader track (increased)
-  final float FADER_HANDLE_HEIGHT = 10; // Height of the fader handle (increased)
+  final float LABEL_RATIO = 0.10;       // Proportion of height for track name label
+  final float BUTTON_RATIO = 0.08;      // Proportion of height for mute/solo buttons
+  final float PADDING_RATIO = 0.015;    // Proportion of height for padding 
+  final float FADER_WIDTH = 28;         // Width of the fader track 
+  final float FADER_HANDLE_HEIGHT = 10; // Height of the fader handle
   
 
   OscHelper oscHelper; // Reference to the OscHelper instance
@@ -169,64 +169,7 @@ class Track {
   void setHeight(float height) {
     this.height = height;
   }
-  // void draw(boolean isSelected) {
-  //   // Draw track background
-  //   noStroke();
-    
-  //   // Highlight the selected track with yellow background
-  //   if (isSelected) {
-  //     fill(225, 140, 60); // Yellow for selected track
-  //   } else {
-  //     fill(50, 55, 65);   // Regular color for non-selected track
-  //   }
-    
-  //   rect(x, y, width, height, 5);
-
-  //   // Draw track label
-  //   fill(255);
-  //   textAlign(CENTER);
-  //   textSize(12);
-  //   text(name, x + width / 2, y + 15);
-
-  //   // Draw volume fader background
-  //   fill(30, 35, 45);
-  //   float faderBgX = x + (width - 20) / 2; // Center the fader background horizontally
-  //   rect(faderBgX, y + 25, 20, height - 50, 3);
-
-  //   // Draw VU meter (behind volume fader)
-  //   if (!muted) {
-  //     float vuHeight = vuLevel * (height - 50);
-  //     for (int i = 0; i < vuHeight; i++) {
-  //       float position = i / (height - 50.0);
-  //       color meterColor = lerpColor(
-  //         lerpColor(color(0, 200, 0), color(255, 255, 0), min(position * 2, 1)),
-  //         color(255, 0, 0),
-  //         max((position - 0.5) * 2, 0)
-  //       );
-  //       stroke(meterColor);
-  //       line(faderBgX + 2, y + height - 25 - i, faderBgX + 18, y + height - 25 - i);
-  //     }
-  //   }
-
-  //   // Draw volume fader
-  //   fill(muted ? color(100, 0, 0) : (soloed ? color(0, 100, 0) : color(180)));
-  //   float faderY = y + height - 25 - (volume * (height - 50));
-  //   rect(faderBgX - 2, faderY - 3, 24, 6, 2);
-
-  //   // Draw mute/solo buttons
-  //   fill(muted ? color(255, 0, 0) : color(100));
-  //   rect(x + 10, y + height - 25, 15, 15, 3);
-  //   fill(255);
-  //   textSize(10);
-  //   text("M", x + 18, y + height - 14);
-
-  //   fill(soloed ? color(0, 255, 0) : color(100));
-  //   rect(x + width - 25, y + height - 25, 15, 15, 3);
-  //   fill(255);
-  //   text("S", x + width - 17, y + height - 14);
-  // }
-
-
+  
   void draw(boolean isSelected) {
     // Calculate proportional dimensions based on current height
     float labelHeight = height * LABEL_RATIO;
