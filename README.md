@@ -57,7 +57,6 @@ Audio Engine ← OSC Output ← Position Calculations ← User Input
 ### Prerequisites
 - **Processing 4.x** or newer
 - **Required Libraries**:
-  - ControlP5 (for UI controls)
   - oscP5 (for OSC communication)
   - MidiBus (for MIDI integration)
 

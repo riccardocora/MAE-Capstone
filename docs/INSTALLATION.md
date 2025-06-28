@@ -10,24 +10,7 @@ This guide provides step-by-step instructions for setting up the 3D Spatial Audi
 - [Verification](#verification)
 - [Troubleshooting Installation](#troubleshooting-installation)
 
-## System Requirements
 
-### Minimum Requirements
-- **Operating System**: Windows 10/11, macOS 10.14+, or Linux (Ubuntu 18.04+)
-- **Processor**: Intel i5 or equivalent AMD processor
-- **Memory**: 4 GB RAM
-- **Graphics**: OpenGL 3.0 compatible graphics card
-- **Storage**: 500 MB free disk space
-- **Network**: Ethernet or Wi-Fi (for OSC communication)
-
-### Recommended Requirements
-- **Operating System**: Windows 11 or macOS 12+
-- **Processor**: Intel i7 or equivalent AMD processor
-- **Memory**: 8 GB RAM or more
-- **Graphics**: Dedicated graphics card with OpenGL 4.0+ support
-- **Storage**: 1 GB free disk space
-- **Network**: Gigabit Ethernet (for low-latency OSC)
-- **Audio Interface**: Professional audio interface with MIDI I/O
 
 ### Hardware Compatibility
 - **MIDI Controllers**: Any USB/MIDI compatible controller
@@ -113,7 +96,6 @@ This guide provides step-by-step instructions for setting up the 3D Spatial Audi
 If automatic installation fails:
 
 1. **Download Libraries Manually**:
-   - ControlP5: [controlp5.org](http://www.controlp5.org/)
    - oscP5: [sojamo.de/oscP5](http://www.sojamo.de/oscP5/)
    - MidiBus: [github.com/sparks/themidibus](https://github.com/sparks/themidibus)
 
@@ -126,9 +108,6 @@ If automatic installation fails:
 3. **Verify Structure**:
    ```
    libraries/
-   ├── ControlP5/
-   │   ├── library/
-   │   └── examples/
    ├── oscP5/
    │   ├── library/
    │   └── examples/
@@ -482,4 +461,3 @@ sudo ufw allow processing
 
 ---
 
-*This installation guide should get you up and running with the 3D Spatial Audio Mixer. For usage instructions, see the User Guide. For technical details, refer to the API documentation.*

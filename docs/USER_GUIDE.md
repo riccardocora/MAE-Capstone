@@ -41,16 +41,15 @@ This guide will help you get started with the 3D Spatial Audio Mixer and make th
 ### Main Visualization Area (Left Side)
 
 #### 3D View Mode
-- **Blue wireframe cube**: Represents the 3D audio space boundary
+- **Wireframe cube**: Represents the 3D audio space boundary
 - **Colored spheres**: Individual audio sources positioned in 3D space
-- **Yellow sphere**: Selected audio source (highlighted)
+- **Yellow contoured sphere**: Selected audio source (highlighted)
 - **Numbers**: Source identification (1-7)
 - **Central sphere**: Represents the listener's head position
 - **Connecting lines**: Show relationship between sources and listener
 
 **Mouse Controls in 3D:**
 - **Click and drag**: Rotate the camera around the scene
-- **Scroll/zoom**: Currently not implemented
 
 #### 2D View Mode (Four Panels)
 - **Front View (top-left)**: X-Y plane projection
@@ -70,9 +69,9 @@ This guide will help you get started with the 3D Spatial Audio Mixer and make th
 #### Rotation Controls
 | Slider | Purpose | Effect |
 |--------|---------|--------|
-| **Roll** | Camera/Cube Z-axis rotation | Tilts view left/right |
-| **Yaw** | Camera/Cube Y-axis rotation | Rotates view horizontally |
-| **Pitch** | Camera/Cube X-axis rotation | Tilts view up/down |
+| **Roll** | Cube Z-axis rotation | Tilts view left/right |
+| **Yaw** | Cube Y-axis rotation | Rotates view horizontally |
+| **Pitch** | Cube X-axis rotation | Tilts view up/down |
 
 #### Additional Controls
 - **MIDI Device Dropdown**: Select connected MIDI controller
@@ -102,7 +101,7 @@ Each track has:
 - **Color coding**: 
   - Green: Mono/Stereo sources (default)
   - Blue: Ambisonic source (only one allowed)
-  - Red: Send sources
+  - Red: Send track
 - **Active source highlighting**: Shows currently selected source
 
 ## Basic Operations
@@ -149,7 +148,7 @@ Each track has:
 2. **Navigate 3D view**:
    - **Mouse drag**: Rotate camera around the scene
    - **Roll/Yaw/Pitch sliders**: Precise camera control
-   - **R key**: Reset all rotations to default
+   - **R key**: Reset camera rotation to default
 
 3. **Understanding 2D views**:
    - **Front view**: Look at sources from the front (X-Y plane)
@@ -423,5 +422,3 @@ When connected to a head tracking system:
 - **Communicate changes** to connected systems
 
 ---
-
-*This user guide covers the essential operations of the 3D Spatial Audio Mixer. For technical details, refer to the API documentation. For setup issues, see the main README.md file.*

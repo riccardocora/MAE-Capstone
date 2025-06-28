@@ -137,14 +137,11 @@ void handleMousePressed/Dragged/Released()                   // Mouse interactio
 /track/{trackNum}/zenith {float}     // Set zenith (0-1, mapped to -π/2-π/2)
 ```
 
-#### Camera/Head Control Messages
+#### Head Control Messages
 ```
-/head/roll {float}                   // Set head roll rotation (-1 to 1, mapped to -π-π)
-/head/pitch {float}                  // Set head pitch rotation
-/head/yaw {float}                    // Set head yaw rotation
-/cube/roll {float}                   // Set cube roll rotation
-/cube/yaw {float}                    // Set cube yaw rotation  
-/cube/pitch {float}                  // Set cube pitch rotation
+/ypr {float} {float} {float}         // Set head rotation in degrees
+
+
 ```
 
 ### Outgoing Messages (Sent)
@@ -500,5 +497,3 @@ boolean DEBUG_POSITION = true;
 ```
 
 ---
-
-*This API documentation corresponds to the current version of the Spatial Audio Mixer. For updates and changes, refer to the inline code comments and README.md.*
